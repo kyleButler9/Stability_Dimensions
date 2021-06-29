@@ -125,18 +125,26 @@ def update():
     pass
 Sliders = (TextInput(title="Group"),)+Sliders
 
-Sliders = (Select(title="Group", value="All",
-               options=["School","NPFT"]),)+Sliders
-Sliders = (TextInput(title="Customer"),)+Sliders
-i = row(column(Select(title="Group", value="All",
-               options=["School","NPFT"]),
-               TextInput(title="New Group")
-               ))
+#Sliders = (Select(title="Group", value="All",
+#               options=["School","NPFT"]),)+Sliders
+#Sliders = (TextInput(title="Customer"),)+Sliders
+# i = row(column(Select(title="Group", value="All",
+#                options=["School","NPFT"]),
+#                TextInput(title="New Group")
+#                ))
+Customer_Inputs = (TextInput(title="Customer name contains:"),
+                 Select(title="Group", value="All",
+                                   options=["Kyle","Reggie"]),
+                TextInput(title="New Customer"),)
+Group_Inputs = (TextInput(title="Group name contains:"),
+                 Select(title="Group", value="All",
+                                   options=["School","NPFT"]),
+                TextInput(title="New Customer"),)
 from os.path import join,dirname
 #for slider in Sliders:
 #    slider.on_change('value', lambda attr, old, new: update())
 desc = Div(text=open(join(dirname(__file__), "description.html")).read(), sizing_mode="stretch_width")
 inputs1 = column(*Sliders[:5], width=320)
 inputs2 = column(*Sliders[5:], width=320)
-l=column(desc,row(inputs1,inputs2,p))
+l=column(row(p,desc),row(Customer_Inputs,Group_Inputs),row(inputs1,inputs2))
 curdoc().add_root(l)
