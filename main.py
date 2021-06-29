@@ -120,10 +120,37 @@ p.text(xr, yr, df.Dimension, angle=label_angle,
 #output_file("burtin.html", title="burtin.py example")
 
 #show(p)
+axis_map = {
+    "Digital Literacy":"literacy",
+    "Income/Living Wage":"income",
+    "Employment Stability":"employability",
+    "Childcare":"childcare",
+    "English Language Skills":"english",
+    "Food Security":"food",
+    "Career Resiliency/Training":"skills",
+    "Education":"education",
+    "Work Clothing":"clothes",
+    "Housing":"housing",
+    "Personal Safety":"safety",
+    "Behavioral Health":"health",
+}
+x_axis = Select(title="X Axis", options=sorted(axis_map.keys()), value="Digital Literacy")
+y_axis = Select(title="Y Axis", options=sorted(axis_map.keys()), value="Employment Stability")
+# Create Column Data Source that will be used by the plot
+source = ColumnDataSource(data=dict(x=[], y=[], color=[], title=[], year=[], revenue=[], alpha=[]))
+
+TOOLTIPS=[
+    ("Name", "@name"),
+    ("Group", "@group"),
+    ("Income", "@income")
+]
+
+p2 = figure(height=600, width=700, title="", toolbar_location=None, tooltips=TOOLTIPS, sizing_mode="scale_both")
+p2.circle(x="x", y="y", source=source, size=7, color="color", line_color=None, fill_alpha="alpha")
 #desc = Div(text=open(join(dirname(__file__), "description.html")).read(), sizing_mode="stretch_width")
 def update():
     pass
-Sliders = (TextInput(title="Group"),)+Sliders
+#Sliders = (TextInput(title="Group"),)+Sliders
 
 #Sliders = (Select(title="Group", value="All",
 #               options=["School","NPFT"]),)+Sliders
@@ -133,18 +160,18 @@ Sliders = (TextInput(title="Group"),)+Sliders
 #                TextInput(title="New Group")
 #                ))
 Customer_Inputs = (TextInput(title="Customer name contains:"),
-                 Select(title="Group", value="All",
+                 Select(title="Customer", value="All",
                                    options=["Kyle","Reggie"]),
                 TextInput(title="New Customer"),)
 Group_Inputs = (TextInput(title="Group name contains:"),
                  Select(title="Group", value="All",
                                    options=["School","NPFT"]),
-                TextInput(title="New Customer"),)
+                TextInput(title="New Group"),)
 from os.path import join,dirname
 #for slider in Sliders:
 #    slider.on_change('value', lambda attr, old, new: update())
 desc = Div(text=open(join(dirname(__file__), "description.html")).read(), sizing_mode="stretch_width")
-inputs1 = column(*Sliders[:5], width=320)
-inputs2 = column(*Sliders[5:], width=320)
-l=column(row(p,desc),row(Customer_Inputs,Group_Inputs),row(inputs1,inputs2))
+inputs1 = column(*Sliders[:6], width=320)
+inputs2 = column(*Sliders[6:], width=320)
+l=row(column(desc,row(column(*Customer_Inputs,width=320),column(*Group_Inputs,width=320)),row(inputs1,inputs2)),column(p,p2))
 curdoc().add_root(l)

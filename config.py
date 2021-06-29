@@ -1,11 +1,12 @@
 from configparser import ConfigParser
 import psycopg2
+from os.path import join,dirname
 #   config returns a dictionary
-def config(ini_file='database.ini', ini_section='local_launcher'):
+def config(ini_file='database.ini', ini_section='local_stability'):
     # create a parser
     parser = ConfigParser()
     # read config file
-    parser.read(ini_file)
+    parser.read(join(dirname(__file__),ini_file))
     # get section, default to postgresql
     db = {}
     if parser.has_section(ini_section):
@@ -21,7 +22,7 @@ def config(ini_file='database.ini', ini_section='local_launcher'):
 RETRY_CONNECTION_MAX_COUNT = 5
 
 class DBI:
-    def __init__(self,SCHEMA='beta',**kwargs):
+    def __init__(self,SCHEMA='customers',**kwargs):
         # at the start of every scession need to run "set search_path = beta;"
         # then you can drop beta. everywhere
         if 'ini_section' in kwargs:
@@ -40,7 +41,7 @@ class DBI:
             set_search_path = \
             """
             SET search_path=%s;
-            """.format(self.SCHEMA)
+            """#.format(self.SCHEMA)
             self.cur.execute(set_search_path,self.SCHEMA)
             self.conn.commit()
             if self.cur.fetchone()[0][0] != self.SCHEMA:
@@ -50,12 +51,13 @@ class DBI:
                     # this function recursively calls itself here to reattempt the connection
                     self.connectToDB(ini_section,try_count,self.SCHEMA)
                 else:
-                    print('failed conn or search_path setting to ',self.SCHEMA,try_count,'times.'
+                    print('failed conn or search_path setting to ',self.SCHEMA,try_count,'times.')
                     print('No more attempts... check cable.')
             else:
                 print('Connected. Search_path set to',self.SCHEMA)
         except (Exception, psycopg2.DatabaseError) as error:
             print(error)
+            print('err')
             self.conn = None
         finally:
             return self
