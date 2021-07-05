@@ -1,10 +1,11 @@
+from os.path import join,dirname
+
+from bokeh.layouts import column, row
+from bokeh.models import Select, TextInput,Button
+
 from panels.psql.config import *
 from panels.htmls.html_config import *
 
-from os.path import join,dirname
-from bokeh.layouts import column, row
-
-from bokeh.models import ColumnDataSource, Div, Select, Slider, TextInput,Panel, Tabs,Button, RangeSlider
 
 class New_Customer(DBI):
     def __init__(self,*args,**kwargs):
