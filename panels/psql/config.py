@@ -94,7 +94,7 @@ class DBI:
         except (Exception, psycopg2.DatabaseError) as error:
             print(error)
             print('\nretrying connection...')
-            self.restartConnection(self.ini_section)
+            self.restartConnection()
             try:
                 cur = self.conn.cursor()
                 if len(args) != 0:
@@ -115,7 +115,7 @@ class DBI:
         # does not commit
         try:
             if self.testConnection() == 0:
-                self.restartConnection(self.ini_section)
+                self.restartConnection()
             self.cur = self.conn.cursor()
             if len(args) != 0:
                 self.cur.execute(sql,(*args,))
@@ -130,7 +130,7 @@ class DBI:
         #returns a list of tuples
         # does not commit
         if self.testConnection() == 0:
-            self.restartConnection(self.ini_section)
+            self.restartConnection()
         if len(args) != 0:
             self.cur.execute(sql,(*args,))
         else:
