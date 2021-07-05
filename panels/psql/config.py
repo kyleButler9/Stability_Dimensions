@@ -34,30 +34,36 @@ class DBI:
     def connectToDB(self,**kwargs):
         try:
             # read database configuration
-            if self.conn: #is not None
-                self.conn.close()
+            # if self.conn: #is not None
+            #     self.conn.close()
             if 'try_count' in kwargs:
                 try_count = kwargs['try_count']
             else:
                 try_count=0
-            params = config(ini_section=ini_section)
+            if "ini_section" in kwargs:
+                self.ini_section=kwargs['ini_section']
+
+            params = config(ini_section=self.ini_section)
             self.conn = psycopg2.connect(**params)
             self.cur = self.conn.cursor()
             if 'schema' in kwargs:
                 self.schema=kwargs['schema']
-            self.cur.execute(f"SET search_path='{self.schema}'; show search_path;")
+            else:
+                self.schema='customers'
+            self.cur.execute(f"SET search_path='{self.schema}';")
             self.conn.commit()
-            if self.cur.fetchone()[0][0] != self.SCHEMA:
+            self.cur.execute('show search_path;')
+            if self.cur.fetchone()[0] != self.schema:
                 if try_count < RETRY_CONNECTION_MAX_COUNT:
-                    print('failed conn or search_path setting to ',self.SCHEMA,try_count,'times.')
+                    print('failed conn or search_path setting to ',self.schema,try_count,'times.')
                     try_count+=1
                     # this function recursively calls itself here to reattempt the connection
-                    self.connectToDB(ini_section,try_count,self.SCHEMA)
+                    self.connectToDB(ini_section,try_count,self.schema)
                 else:
-                    print('failed conn or search_path setting to ',self.SCHEMA,try_count,'times.')
+                    print('failed conn or search_path setting to ',self.schema,try_count,'times.')
                     print('No more attempts... check cable.')
             else:
-                print('Connected. Search_path set to',self.SCHEMA)
+                print('Connected. Search_path set to',self.schema)
         except (Exception, psycopg2.DatabaseError) as error:
             print(error)
             print('err')

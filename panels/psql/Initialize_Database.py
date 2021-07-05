@@ -1,11 +1,7 @@
 import psycopg2
 from config import config
 
-# improvements include:
-#   creating a variable to hold "beta" so that schema of different names
-#   can easily be deployed
-
-TEST_COMMAND = ('SELECT 1',)
+TEST_COMMAND = ('SELECT \'test command\'',)
 def batchExecuteSqlCommands(ini_section,SCHEMA='customers',commands=TEST_COMMAND):
     conn = None
     try:
@@ -15,7 +11,7 @@ def batchExecuteSqlCommands(ini_section,SCHEMA='customers',commands=TEST_COMMAND
         conn = psycopg2.connect(**params)
         cur = conn.cursor()
         # create table one by one
-        cur.execute(f"SET search_path='{SCHEMA}';",SCHEMA)
+        cur.execute(f"SET search_path='{SCHEMA}';")
         for command in commands:
             cur.execute(command)
         # close communication with the PostgreSQL database server
@@ -30,6 +26,9 @@ def batchExecuteSqlCommands(ini_section,SCHEMA='customers',commands=TEST_COMMAND
 
 class DBAdmin:
     createTableCommands = (
+        """
+        CREATE SCHEMA customers;
+        """,
         """
         CREATE TABLE groups (
             group_id SERIAL PRIMARY KEY,
@@ -50,7 +49,8 @@ class DBAdmin:
         """
         CREATE TABLE survey(
             survey_id SERIAL PRIMARY KEY,
-            customer_id INTEGER,
+            customer_id INTEGER NOT NULL,
+            time timestamp,
             notes VARCHAR(255),
             score INTEGER,
             literacy INTEGER,
@@ -88,7 +88,7 @@ class DBAdmin:
     )
 if __name__ == '__main__':
 
-    # This app instantiates a new PostgreSQL database.
+    # This script instantiates a new PostgreSQL database.
 
     # In order to run, replace "local_launcher" below with the header of the .ini file
     # section.
@@ -96,7 +96,7 @@ if __name__ == '__main__':
     # For future development, consider compiling a CLI app that takes as input
     # a <example_path>.ini file path.
 
-    batchExecuteSqlCommands('local_stability',commands=DBAdmin.dropTablesCommands)
+    #batchExecuteSqlCommands('local_stability',commands=DBAdmin.dropTablesCommands)
     #print('deleted beta schema.')
     batchExecuteSqlCommands('local_stability',commands=DBAdmin.createTableCommands)
     batchExecuteSqlCommands('local_stability',commands=DBAdmin.initializeDatabaseCommands)
