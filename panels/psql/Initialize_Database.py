@@ -72,7 +72,12 @@ class DBAdmin:
     initializeDatabaseCommands = (
         """
         INSERT INTO groups(name)
-        VALUES('Walk in'),('School');
+        VALUES('Walk in'),('School'),('None');
+        """,
+        """
+        INSERT INTO customers(name,notes,group_id)
+        VALUES('None','Please select a customer.',
+                (SELECT group_id from groups where groups.name='None'));
         """,
     )
     dropTablesCommands = (
@@ -84,6 +89,9 @@ class DBAdmin:
     """,
     """
     DROP TABLE IF EXISTS groups;
+    """,
+    """
+    DROP SCHEMA IF EXISTS customers;
     """,
     )
 if __name__ == '__main__':

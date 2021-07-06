@@ -174,7 +174,6 @@ class New_Customer(DBI):
             self.group_notes_desc.value = notes[0]
         else:
             self.group_notes_desc.value =""
-        pass
     def group_notes_description(self):
         self.group_notes_desc=TextInput(title="Group Notes:")
         return self.group_notes_desc
