@@ -65,7 +65,7 @@ class Survey(DBI):
                 columns.append(self.Sliders[button].title)
                 values.append(self.Sliders[button].value)
 
-        values+=[self.cust_notes.value,
+        values+=[self.survey_notes.value,
                 self.custo_score.value,
                 self.cust_dropdown.value]
         values_ph=('%s,'*len(columns))[:-1]
@@ -126,7 +126,7 @@ class Survey(DBI):
         self.cust_dropdown=Select(title="Customers",
                 value="All",
                 options=custs)
-        self.cust_dropdown.on_change('value',lambda attr, old, new: self.get_cust_notes())
+        self.cust_dropdown.on_change('value',lambda attr, old, new: self.cust_notes_update())
         return self.cust_dropdown
     def cust_score(self):
         self.custo_score=Slider(title='Customer Score', start=0, end=9, value=3, step=1)
@@ -141,31 +141,45 @@ class Survey(DBI):
     def new_survey_notes(self):
         self.survey_notes=TextInput(title="Survey Notes:")
         return self.survey_notes
-    def get_cust_notes(self):
-        notes = self.fetchone("SELECT notes FROM customers WHERE name = %s;",
+    def cust_notes(self):
+        notes=self.fetchone("SELECT COALESCE(notes,'') FROM customers WHERE name = %s",
                                 self.cust_dropdown.value)
-        if notes[0]:
-            return div_html("notes.html",args=('Customer',notes[0],))
+        if notes:
+            self.cust_markup=div_html("notes.html",args=('Customer',notes[0],))
         else:
-            return div_html("notes.html",args=('Customer','',))
+            self.cust_markup = div_html("notes.html",args=('Customer','',))
+        return self.cust_markup
+    def cust_notes_update(self):
+        notes=self.fetchone("SELECT COALESCE(notes,'') FROM customers WHERE name = %s",
+                                self.cust_dropdown.value)
+        if notes:
+            self.cust_markup.text=div_html("notes.html",args=('Customer',notes[0],)).text
+        else:
+            self.cust_markup.text = div_html("notes.html",args=('Customer','',)).text
     def downsample_cust_handler(self):
-        customers = self.fetchall("SELECT customers.name FROM customers JOIN groups USING (group_id) WHERE customers.name ~* %s and groups.name = %s;",
-                                self.downsample_cust.value.strip(),
-                                self.group_dropdown.value)
+        customers = self.fetchall("""
+            SELECT customers.name
+            FROM customers
+            JOIN groups USING (group_id)
+            WHERE customers.name ~* %s
+            AND groups.name = %s;
+            """,
+            self.downsample_cust.value.strip(),
+            self.group_dropdown.value)
         self.cust_dropdown.options=[customer[0] for customer in customers]
     def get_10_customers(self):
         customers = self.fetchall("""
-                                SELECT customers.name
-                                FROM customers
-                                JOIN groups USING (group_id)
-                                LEFT OUTER JOIN survey USING (customer_id)
-                                WHERE customers.name ~* %s
-                                AND groups.name = %s
-                                order by survey.time desc
-                                limit 10;
-                                """,
-                                self.downsample_cust.value.strip(),
-                                self.group_dropdown.value)
+            SELECT customers.name
+            FROM customers
+            JOIN groups USING (group_id)
+            LEFT OUTER JOIN survey USING (customer_id)
+            WHERE customers.name ~* %s
+            AND groups.name = %s
+            order by survey.time desc
+            limit 10;
+            """,
+            self.downsample_cust.value.strip(),
+            self.group_dropdown.value)
 
 # use a table like below to map column names to more readable names
 # axis_map = {

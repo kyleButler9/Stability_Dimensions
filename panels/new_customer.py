@@ -25,9 +25,11 @@ class New_Customer(DBI):
         return self.cust_button_
     def ins_cust_handler(self):
         doNothing=False
+        print('ins cust0')
         if len(self.cust_name_.value) == 0:
             doNothing=True
         if len(self.cust_address_.value) == 0 and len(self.cust_notes_.value) == 0:
+            print('ins cust')
             new_cust = \
             """
             DROP TABLE IF EXISTS user_inputs;
@@ -122,6 +124,44 @@ class New_Customer(DBI):
             self.insertToDB(new_cust,
                 self.cust_name_.value,
                 self.cust_address_.value,
+                self.group_dropdown.value)
+        else:
+            new_cust = \
+            """
+            DROP TABLE IF EXISTS user_inputs;
+            CREATE TEMP TABLE user_inputs(
+                name VARCHAR(255),
+                address VARCHAR(255),
+                notes VARCHAR(255),
+                group_id INTEGER
+                );
+            INSERT INTO user_inputs(
+                name,
+                address,
+                notes,
+                group_id
+            )
+            VALUES (
+                %s,
+                %s,
+                %s,
+                (SELECT group_id
+                FROM groups
+                WHERE groups.name = %s)
+            );
+            INSERT INTO customers(name,address,notes,group_id)
+                SELECT name,address,notes,group_id
+                    FROM user_inputs
+            ON CONFLICT (name) DO UPDATE
+                SET address = EXCLUDED.address,
+                    group_id = EXCLUDED.group_id,
+                    notes = EXCLUDED.notes
+            RETURNING customer_id as customer;
+            """
+            self.insertToDB(new_cust,
+                self.cust_name_.value,
+                self.cust_address_.value,
+                self.cust_notes_.value,
                 self.group_dropdown.value)
         if not doNothing:
             self.clear_cust_info()

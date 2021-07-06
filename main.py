@@ -32,7 +32,8 @@ def survey_panel(SP):
                 SP.group_notes()
                 ),
             row(SP.cust_name_contains(),
-                SP.cust_dd()
+                SP.cust_dd(),
+                SP.cust_notes()
                 ),
             )
     for col in SP.Sliders:
