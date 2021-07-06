@@ -1,5 +1,6 @@
 from os.path import join,dirname
 from collections import OrderedDict
+from functools import partial
 
 from bokeh.layouts import column, row
 from bokeh.models import ColumnDataSource, Div, Select, Slider, TextInput,Panel, Tabs,Button, RangeSlider
@@ -10,31 +11,15 @@ import pandas as pd
 from panels.psql.config import *
 from panels.htmls.html_config import *
 
-# use a table like below to map column names to more readable names
-# axis_map = {
-#     "Digital Literacy":"literacy",
-#     "Income/Living Wage":"income",
-#     "Employment Stability":"employability",
-#     "Childcare":"childcare",
-#     "English Language Skills":"english",
-#     "Food Security":"food",
-#     "Career Resiliency/Training":"skills",
-#     "Education":"education",
-#     "Work Clothing":"clothes",
-#     "Housing":"housing",
-#     "Personal Safety":"safety",
-#     "Behavioral Health":"health",
-# }
-
 class Survey(DBI):
     def __init__(self,*args,**kwargs):
         DBI.__init__(self,ini_section = kwargs['ini_section'])
         survey_fields=f"""
         select column_name
         from information_schema.columns
-        where table_schema in ('{DBI.schema}')
+        where table_schema in ('{self.schema}')
         and table_name in ('survey')
-        and column_name not in ('time')
+        and column_name not in ('time','notes','score','survey_id','customer_id')
         order by ordinal_position;
         """
         self.Sliders=OrderedDict()
@@ -42,34 +27,15 @@ class Survey(DBI):
             slider=Slider(title=column[0], start=0, end=5, value=3, step=1)
             button = Button(label='on')
             self.Sliders[button]=slider
-            button.on_click(self.govern_visibility())
-            #see if slider hashes
-            self.Sliders[slider]=button
-    def govern_visibility(self):
-        for button in self.Sliders:
-            if button.label='on':
-                button.label='off'
-                self.Sliders[button].visible=False
-            else:
-                button.label='on'
-                self.Sliders[button].visible=True
-    def survey_panel(self):
-        panel= (self.desc(),
-                row(self.group_name_contains(),
-                    self.group_dd(),
-                    self.group_notes()),
-                row(self.cust_name_contains(),
-                    self.cust_dd()),
-                row(self.cust_score(),
-                    self.cust_notes()),
-                )
-        for col in self.Sliders:
-            panel += (row(*self.Sliders[col]),)
-
-        panel += (row(self.cust_score(),self.new_survey_notes()),
-                row(self.submit()),)
-        #incl fig here when working
-        return column(*panel)
+            button.on_click(partial(self.govern_visibility,button=button))
+    def govern_visibility(self,button):
+        #for button in self.Sliders.keys():
+        if button.label=='on':
+            button.label='off'
+            self.Sliders[button].visible=False
+        else:
+            button.label='on'
+            self.Sliders[button].visible=True
     def submit(self,label="submit survey"):
         self.ins_survey_button=Button(label=label, button_type="success")
         self.ins_survey_button.on_click(self.ins_survey)
@@ -109,8 +75,7 @@ class Survey(DBI):
         self.reset_survey()
     def reset_survey(self):
         for button in self.Sliders:
-            if button.label=='on':
-                self.Sliders[button].value=3
+            self.Sliders[button].value=3
         self.cust_notes.value=''
         self.cust_dropdown.value='None'
     def desc(self):
@@ -124,15 +89,23 @@ class Survey(DBI):
         self.group_dropdown=Select(title="Group",
                 value="All",
                 options=groups)
-        self.group_dropdown.on_change('value',lambda attr, old, new: self.get_notes())
+        self.group_dropdown.on_change('value',lambda attr, old, new: self.group_notes_update())
         return self.group_dropdown
     def group_notes(self):
-        notes=self.fetchone("SELECT notes FROM groups WHERE name = %s",
+        notes=self.fetchone("SELECT COALESCE(notes,'') FROM groups WHERE name = %s",
                                 self.group_dropdown.value)
-        if notes[0]:
-            return div_html("group_notes.html",args=('Group',notes[0],))
+        if notes:
+            self.group_markup=div_html("notes.html",args=('Group',notes[0],))
         else:
-            return div_html("group_notes.html",args=('Group','',))
+            self.group_markup = div_html("notes.html",args=('Group','',))
+        return self.group_markup
+    def group_notes_update(self):
+        notes=self.fetchone("SELECT COALESCE(notes,'') FROM groups WHERE name = %s",
+                                self.group_dropdown.value)
+        if notes:
+            self.group_markup.text=div_html("notes.html",args=('Group',notes[0],)).text
+        else:
+            self.group_markup.text = div_html("notes.html",args=('Group','',)).text
 
     def downsample_group_handler(self):
         groups = self.fetchall("SELECT name FROM groups WHERE name ~* %s;",
@@ -148,6 +121,8 @@ class Survey(DBI):
         return self.downsample_cust
     def cust_dd(self):
         custs = self.get_10_customers()
+        if not custs:
+            custs = []
         self.cust_dropdown=Select(title="Customers",
                 value="All",
                 options=custs)
@@ -174,11 +149,36 @@ class Survey(DBI):
         else:
             return div_html("notes.html",args=('Customer','',))
     def downsample_cust_handler(self):
-        customers = self.fetchall("SELECT name FROM customers WHERE name ~* %s and group ~* %s;",
+        customers = self.fetchall("SELECT customers.name FROM customers JOIN groups USING (group_id) WHERE customers.name ~* %s and groups.name = %s;",
                                 self.downsample_cust.value.strip(),
                                 self.group_dropdown.value)
         self.cust_dropdown.options=[customer[0] for customer in customers]
     def get_10_customers(self):
-        customers = self.fetchall("SELECT name FROM customers WHERE name ~* %s and group ~* %s order by time desc limit 10;",
+        customers = self.fetchall("""
+                                SELECT customers.name
+                                FROM customers
+                                JOIN groups USING (group_id)
+                                LEFT OUTER JOIN survey USING (customer_id)
+                                WHERE customers.name ~* %s
+                                AND groups.name = %s
+                                order by survey.time desc
+                                limit 10;
+                                """,
                                 self.downsample_cust.value.strip(),
                                 self.group_dropdown.value)
+
+# use a table like below to map column names to more readable names
+# axis_map = {
+#     "Digital Literacy":"literacy",
+#     "Income/Living Wage":"income",
+#     "Employment Stability":"employability",
+#     "Childcare":"childcare",
+#     "English Language Skills":"english",
+#     "Food Security":"food",
+#     "Career Resiliency/Training":"skills",
+#     "Education":"education",
+#     "Work Clothing":"clothes",
+#     "Housing":"housing",
+#     "Personal Safety":"safety",
+#     "Behavioral Health":"health",
+# }

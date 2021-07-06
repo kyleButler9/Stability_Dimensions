@@ -5,4 +5,5 @@ def div_html(html,file = __file__,**kwargs):
     if 'args' not in kwargs:
         return Div(text=open(join(dirname(file), html)).read(),**kwargs)
     else:
-        Div(text=open(join(dirname(file), html)).read().format(*kwargs['args']),**kwargs)
+        _kwargs=dict((k,adict[k]) for k in kwargs if k != 'args')
+        return Div(text=open(join(dirname(file), html)).read() % kwargs['args'],**_kwargs)

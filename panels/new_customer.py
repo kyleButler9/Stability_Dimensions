@@ -10,23 +10,6 @@ from panels.htmls.html_config import *
 class New_Customer(DBI):
     def __init__(self,*args,**kwargs):
         DBI.__init__(self,ini_section = kwargs['ini_section'])
-    def new_customer_panel(self):
-        panel= (self.desc(),
-                row(self.group_name_contains(),
-                    self.group_dd(),
-                    self.group_notes_description()
-                    ),
-                row(self.cust_name(),
-                    self.cust_address(),
-                    self.cust_notes(),
-                    self.cust_button()
-                    ),
-                row(self.new_group(),
-                    self.new_group_notes(),
-                    self.insert_new_group_button()
-                    ),
-                )
-        return column(*panel)
     def cust_name(self):
         self.cust_name_=TextInput(title="Name")
         return self.cust_name_

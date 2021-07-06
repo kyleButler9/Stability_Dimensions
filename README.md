@@ -2,13 +2,13 @@
 
 ## Initialization
 
-After installing the Requirements.txt file via
+Navigate in powershell to the parent directory of this repo and then,
+after installing the Requirements.txt file via
 
-    pip install -r Requirements.txt
+    pip3 install -r Stability_Dimensions/Requirements.txt
 
-Navigate to this repo's parent directory, and initialize the database schema of
-the database specified in the .ini file stored in the panels/psql subdirectory
-and run
+initialize the database schema of the database specified in the .ini file stored
+in the panels/psql subdirectory and run
 
     python Stability_Dimensions/panels/psql/Initialize_Database.py
 
