@@ -5,10 +5,8 @@ from functools import partial
 from bokeh.layouts import column, row
 from bokeh.models import ColumnDataSource, Div, Select, Slider, TextInput,Panel, Tabs,Button, RangeSlider
 
-import numpy as np
-import pandas as pd
-
 from panels.psql.config import *
+from panels.psql.db_admin import *
 from panels.htmls.html_config import *
 
 class Survey(DBI):
@@ -19,7 +17,7 @@ class Survey(DBI):
         from information_schema.columns
         where table_schema in ('{self.schema}')
         and table_name in ('survey')
-        and column_name not in ('time','notes','score','survey_id','customer_id')
+        and column_name not in {repr(DBAdmin.non_survey_columns)}
         order by ordinal_position;
         """
         self.Sliders=OrderedDict()
@@ -58,6 +56,10 @@ class Survey(DBI):
             )
         );
         """
+        str_inputs,values=self.insert_inputs()
+        self.insertToDB(ins_str.format(*str_inputs),values)
+        self.reset_survey()
+    def insert_inputs(self):
         columns=[]
         values=[]
         for button in self.Sliders:
@@ -70,14 +72,13 @@ class Survey(DBI):
                 self.cust_dropdown.value]
         values_ph=('%s,'*len(columns))[:-1]
         cols=','.join(columns)
-        self.insertToDB(ins_str.format(cols,values_ph),
-                        values)
-        self.reset_survey()
+        return (cols,values_ph,), values
     def reset_survey(self):
         for button in self.Sliders:
             self.Sliders[button].value=3
-        self.cust_notes.value=''
         self.cust_dropdown.value='None'
+        self.cust_dropdown.options=['None']
+        self.cust_notes_update()
     def desc(self):
         return div_html("survey.html",sizing_mode="stretch_width")
     def group_name_contains(self):
@@ -91,6 +92,14 @@ class Survey(DBI):
                 options=groups)
         self.group_dropdown.on_change('value',lambda attr, old, new: self.group_notes_update())
         return self.group_dropdown
+    def cust_dd(self):
+        custs = self.get_10_customers()
+
+        self.cust_dropdown=Select(title="Customers",
+                value="All",
+                options=custs)
+        self.cust_dropdown.on_change('value',lambda attr, old, new: self.cust_notes_update())
+        return self.cust_dropdown
     def group_notes(self):
         notes=self.fetchone("SELECT COALESCE(notes,'') FROM groups WHERE name = %s",
                                 self.group_dropdown.value)
@@ -99,6 +108,21 @@ class Survey(DBI):
         else:
             self.group_markup = div_html("notes.html",args=('Group','',))
         return self.group_markup
+    def cust_notes(self):
+        notes=self.fetchone("SELECT COALESCE(notes,'') FROM customers WHERE name = %s",
+                                self.cust_dropdown.value)
+        if notes:
+            self.cust_markup=div_html("notes.html",args=('Customer',notes[0],))
+        else:
+            self.cust_markup = div_html("notes.html",args=('Customer','',))
+        return self.cust_markup
+    def cust_notes_update(self):
+        notes=self.fetchone("SELECT COALESCE(notes,'') FROM customers WHERE name = %s",
+                                self.cust_dropdown.value)
+        if notes:
+            self.cust_markup.text=div_html("notes.html",args=('Customer',notes[0],)).text
+        else:
+            self.cust_markup.text = div_html("notes.html",args=('Customer','',)).text
     def group_notes_update(self):
         notes=self.fetchone("SELECT COALESCE(notes,'') FROM groups WHERE name = %s",
                                 self.group_dropdown.value)
@@ -114,20 +138,25 @@ class Survey(DBI):
     def get_all_groups(self):
         groups = self.fetchall("SELECT name FROM groups;")
         return [group[0] for group in groups]
+    def get_10_customers(self):
+        customers = self.fetchall("""
+            SELECT customers.name
+            FROM customers
+            JOIN groups USING (group_id)
+            LEFT OUTER JOIN survey USING (customer_id)
+            WHERE customers.name ~* %s
+            AND groups.name = %s
+            order by survey.time desc
+            limit 10;
+            """,
+            self.downsample_cust.value.strip(),
+            self.group_dropdown.value)
+        return [customer[0] for customer in customers]
 
     def cust_name_contains(self):
         self.downsample_cust=TextInput(title="Customer name contains:")
         self.downsample_cust.on_change('value', lambda attr, old, new: self.downsample_cust_handler())
         return self.downsample_cust
-    def cust_dd(self):
-        custs = self.get_10_customers()
-        if not custs:
-            custs = []
-        self.cust_dropdown=Select(title="Customers",
-                value="All",
-                options=custs)
-        self.cust_dropdown.on_change('value',lambda attr, old, new: self.cust_notes_update())
-        return self.cust_dropdown
     def cust_score(self):
         self.custo_score=Slider(title='Customer Score', start=0, end=9, value=3, step=1)
         return self.custo_score
@@ -152,6 +181,7 @@ class Survey(DBI):
     def cust_notes_update(self):
         notes=self.fetchone("SELECT COALESCE(notes,'') FROM customers WHERE name = %s",
                                 self.cust_dropdown.value)
+        print(notes)
         if notes:
             self.cust_markup.text=div_html("notes.html",args=('Customer',notes[0],)).text
         else:
@@ -167,19 +197,7 @@ class Survey(DBI):
             self.downsample_cust.value.strip(),
             self.group_dropdown.value)
         self.cust_dropdown.options=[customer[0] for customer in customers]
-    def get_10_customers(self):
-        customers = self.fetchall("""
-            SELECT customers.name
-            FROM customers
-            JOIN groups USING (group_id)
-            LEFT OUTER JOIN survey USING (customer_id)
-            WHERE customers.name ~* %s
-            AND groups.name = %s
-            order by survey.time desc
-            limit 10;
-            """,
-            self.downsample_cust.value.strip(),
-            self.group_dropdown.value)
+
 
 # use a table like below to map column names to more readable names
 # axis_map = {

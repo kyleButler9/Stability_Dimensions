@@ -1,5 +1,3 @@
-from os.path import join,dirname
-
 from bokeh.layouts import column, row
 from bokeh.models import Select, TextInput,Button
 

@@ -2,9 +2,6 @@ from bokeh.models import Panel, Tabs
 from bokeh.io import curdoc
 from bokeh.layouts import column, row
 
-from os.path import join,dirname
-
-from panels.htmls.html_config import *
 from panels.new_customer import New_Customer
 from panels.survey import Survey
 

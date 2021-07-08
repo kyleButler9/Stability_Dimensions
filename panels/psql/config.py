@@ -22,6 +22,14 @@ def config(ini_file='database.ini', ini_section='local_stability'):
 
 RETRY_CONNECTION_MAX_COUNT = 5
 
+class StringTuple(tuple):
+    def __repr__(self):
+        s="("
+        for i in self:
+            s+="\'"+str(i)+"\',"
+        s=s[:-1]+")"
+        return s
+
 class DBI:
     def __init__(self,SCHEMA='customers',**kwargs):
         # at the start of every scession need to run "set search_path = beta;"

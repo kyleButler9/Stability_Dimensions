@@ -1,22 +1,20 @@
 import psycopg2
-from config import config
+from config import config,StringTuple
 
-TEST_COMMAND = ('SELECT \'test command\'',)
-def batchExecuteSqlCommands(ini_section,SCHEMA='customers',commands=TEST_COMMAND):
+TEST_COMMAND = ('SELECT \'connection to postgres established.\'',)
+def batchExecuteSqlCommands(ini_section,SCHEMA=None,commands=TEST_COMMAND)
+    # code from postgres python tutorial
     conn = None
     try:
-        # read the connection parameters
         params = config(ini_section=ini_section)
-        # connect to the PostgreSQL server
         conn = psycopg2.connect(**params)
         cur = conn.cursor()
-        # create table one by one
-        cur.execute(f"SET search_path='{SCHEMA}';")
+        if SCHEMA:
+            cur.execute(f"SET search_path='{SCHEMA}';")
+        #  batch:
         for command in commands:
             cur.execute(command)
-        # close communication with the PostgreSQL database server
         cur.close()
-        # commit the changes
         conn.commit()
     except (Exception, psycopg2.DatabaseError) as error:
         print(error)
@@ -25,6 +23,7 @@ def batchExecuteSqlCommands(ini_section,SCHEMA='customers',commands=TEST_COMMAND
             conn.close()
 
 class DBAdmin:
+    non_survey_columns=StringTuple(['time','notes','score','survey_id','customer_id'])
     createTableCommands = (
         """
         CREATE SCHEMA customers;
@@ -71,8 +70,8 @@ class DBAdmin:
         );
     initializeDatabaseCommands = (
         """
-        INSERT INTO groups(name)
-        VALUES('Walk in'),('School'),('None');
+        INSERT INTO groups(name,notes)
+        VALUES('None','Please select a group.'),('School',''),('Walk In','');
         """,
         """
         INSERT INTO customers(name,notes,group_id)
@@ -106,5 +105,5 @@ if __name__ == '__main__':
 
     #batchExecuteSqlCommands('local_stability',commands=DBAdmin.dropTablesCommands)
     #print('deleted beta schema.')
-    batchExecuteSqlCommands('local_stability',commands=DBAdmin.createTableCommands)
-    batchExecuteSqlCommands('local_stability',commands=DBAdmin.initializeDatabaseCommands)
+    batchExecuteSqlCommands('local_stability',SCHEMA='customer',commands=DBAdmin.createTableCommands)
+    batchExecuteSqlCommands('local_stability',SCHEMA='customer',commands=DBAdmin.initializeDatabaseCommands)
