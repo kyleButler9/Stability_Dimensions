@@ -23,7 +23,7 @@ def new_customer_panel(NC):
             )
     return column(*panel)
 def survey_panel(SP):
-    panel= (SP.desc(),
+    panel= [SP.desc(),
             row(SP.group_name_contains(),
                 SP.group_dd(),
                 SP.group_notes()
@@ -31,19 +31,27 @@ def survey_panel(SP):
             row(SP.cust_name_contains(),
                 SP.cust_dd(),
                 SP.cust_notes()
-                ),
-            )
+                )]
     i=0
     _row=None
     for select in SP.Selects:
         if i % 3 == 0:
             if _row:
-                panel+=(row(*_row),)
+                panel.append(row(*_row))
             _row=[]
         _row.append(SP.Selects[select])
         i+=1
-    panel += (row(SP.cust_score(),SP.new_survey_notes()),
-            row(SP.submit()),)
+    i=0
+    _row=None
+    for select in SP.Selects:
+        if i % 3 == 0:
+            if _row:
+                panel.append(row(*_row))
+            _row=[]
+        _row.append(select)
+        i+=1
+    panel += [row(SP.cust_score(),SP.new_survey_notes()),
+            row(SP.submit())]
     #incl fig here when working
     return column(*panel)
 

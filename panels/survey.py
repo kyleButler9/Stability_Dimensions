@@ -30,10 +30,10 @@ class Survey(DBInfo):
     def select_fields(self,sfield):
         fields = self.get_all_options()
         if sfield != 'income':
-            select=Select(title=sfield,value="All",options=self.survey_options)
+            select=Select(title=sfield,value='3',options=self.survey_options)
         else:
-            select=Select(title=sfield,value="All",options=self.income_options)
-        button = Button(label='on')
+            select=Select(title=sfield,value='12000',options=self.income_options)
+        button = Button(label=sfield+' on')
         self.Selects[button]=select
         button.on_click(partial(self.govern_visibility,button=button))
         return self
@@ -44,11 +44,11 @@ class Survey(DBInfo):
         return div_html("survey.html",sizing_mode="stretch_width")
     def govern_visibility(self,button):
         #for button in self.Sliders.keys():
-        if button.label=='on':
-            button.label='off'
+        if button.label[-2:]=='on':
+            button.label=button.label[:-2]+'off'
             self.Selects[button].visible=False
         else:
-            button.label='on'
+            button.label=button.label[:-3]+'on'
             self.Selects[button].visible=True
     def submit(self,label="submit survey"):
         self.ins_survey_button=Button(label=label, button_type="success")
@@ -73,25 +73,27 @@ class Survey(DBInfo):
         );
         """
         str_inputs,values=self.insert_inputs()
-        self.insertToDB(ins_str.format(*str_inputs),values)
+        self.insertToDB(ins_str.format(*str_inputs),*values)
         self.reset_survey()
     def insert_inputs(self):
         columns=[]
         values=[]
-        for button in self.Sliders:
-            if button.label=='on':
-                columns.append(self.Sliders[button].title)
-                values.append(self.Sliders[button].value)
-
-        values+=[self.survey_notes.value,
-                self.custo_score.value,
+        for button in self.Selects:
+            if button.label[-2:]=='on':
+                columns.append(self.Selects[button].title)
+                values.append(self.Selects[button].value)
+        if len(self.survey_notes.value) == 0:
+            values+=[None]
+        else:
+            values+=[self.survey_notes.value]
+        values+=[str(self.custo_score.value),
                 self.cust_dropdown.value]
         values_ph=('%s,'*len(columns))[:-1]
         cols=','.join(columns)
         return (cols,values_ph,), values
     def reset_survey(self):
-        for button in self.Sliders:
-            self.Sliders[button].value=3
+        for button in self.Selects:
+            self.Selects[button].value='3'
         self.cust_dropdown.value='None'
         self.cust_dropdown.options=['None']
         self.cust_notes_update()

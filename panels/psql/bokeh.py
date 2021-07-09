@@ -13,7 +13,7 @@ class DBInfo(DBI):
     def group_dd(self):
         groups = self.get_all_groups()
         self.group_dropdown=Select(title="Group",
-                value="All",
+                value="None",
                 options=groups)
         self.group_dropdown.on_change('value',lambda attr, old, new: self.group_notes_update())
         return self.group_dropdown
@@ -21,7 +21,7 @@ class DBInfo(DBI):
         custs = self.get_10_customers()
 
         self.cust_dropdown=Select(title="Customers",
-                value="All",
+                value="None",
                 options=custs)
         self.cust_dropdown.on_change('value',lambda attr, old, new: self.cust_notes_update())
         return self.cust_dropdown
@@ -49,6 +49,7 @@ class DBInfo(DBI):
         else:
             self.cust_markup.text = div_html("notes.html",args=('Customer','',)).text
     def group_notes_update(self):
+        self.downsample_cust_handler()
         notes=self.fetchone("SELECT COALESCE(notes,'') FROM groups WHERE name = %s",
                                 self.group_dropdown.value)
         if notes:
