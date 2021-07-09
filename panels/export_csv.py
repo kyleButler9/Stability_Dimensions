@@ -1,17 +1,15 @@
+from os.path import dirname, join
+from collections import OrderedDict
 
-from bokeh.models import (Button, ColumnDataSource, CustomJS, DataTable,
-                          NumberFormatter, RangeSlider, TableColumn)
 from panels.psql.config import *
 from panels.htmls.html_config import div_html
 from panels.psql.bokeh import DBInfo
-
-from os.path import dirname, join
+from panels.psql.db_admin import DBAdmin
 
 from bokeh.io import curdoc
 from bokeh.layouts import column, row
 from bokeh.models import (Button, ColumnDataSource, CustomJS, DataTable,
                           NumberFormatter, RangeSlider, TableColumn)
-
 
 class Export_Csv(DBInfo):
     def __init__(self,*args,**kwargs):
@@ -32,51 +30,66 @@ class Export_Csv(DBInfo):
             self.fields[field]=TableColumn(field=field, title=field)
             self.data[field]=[]
         self.source=ColumnDataSource(data=self.data)
-
-    def update():
-
-        get_cols = \
+    def desc(self):
+        return div_html("export_csv.html",sizing_mode="stretch_width")
+    def update(self):
+        get_vals = \
         f"""
         SELECT  c.name,g.name, {','.join(self.fields.keys())}
         FROM survey
         JOIN customers c USING (customer_id)
-        JOIN groups g USING (group_id)
+        LEFT OUTER JOIN groups g USING (group_id)
         """
-        params = tuple()
+        params = []
         first = True
-        if self.nameFilter.index("end") != 0:
+        if self.group_dropdown.value != 'None':
             if first is False:
-                sqlStr += 'AND g.name = %s '
+                get_vals += 'AND g.name = %s '
             else:
-                sqlStr += ' WHERE g.name = %s '
+                get_vals += ' WHERE g.name = %s '
                 first = False
-            params+= (self.nameFilter.get(),)
-        if self.nameFilter.index("end") != 0:
+            params.append(self.group_dropdown.value)
+        if self.cust_dropdown.value != 'None':
             if first is False:
-                sqlStr += 'AND c.name = %s '
+                get_vals += 'AND c.name = %s '
             else:
-                sqlStr += ' WHERE c.name = %s '
+                get_vals += ' WHERE c.name = %s '
                 first = False
-            params+= (self.nameFilter.get(),)
-        current = df[(df['salary'] >= slider.value[0]) & (df['salary'] <= slider.value[1])].dropna()
-        source.data = {
-            'name'             : current.name,
-            'salary'           : current.salary,
-            'years_experience' : current.years_experience,
-        }
+            params.append(self.cust_dropdown.value)
+        data = self.fetchall(get_vals+';',*params)
+        d = dict(c_name=[],g_name=[])
+        for key in self.fields.keys():
+            d[key]=[]
+        for dat in data:
+            d['c_name'].append(dat[0])
+            d['g_name'].append(dat[1])
+            i=2
+            for key in self.fields.keys():
+                d[key].append(dat[i])
+                i+=1
+        self.source.data = d
     def set_button(self):
         button = Button(label="Download", button_type="success")
         button.js_on_click(CustomJS(args=dict(source=self.source),
                                     code=open(join(dirname(__file__), "js/download.js")).read()))
         return button
     def set_datatable(self):
-        self.data_table = DataTable(source=self.source, columns=self.columns, width=800)
+        self.data_table = DataTable(source=self.source, columns=[self.fields[field] for field in self.fields.keys()], width=800)
         return self.data_table
-
-
-slider = RangeSlider(title="Max Salary", start=10000, end=110000, value=(10000, 50000), step=1000, format="0,0")
-slider.on_change('value', lambda attr, old, new: update())
-
-#controls = column(slider, button)
-
-#curdoc().add_root(row(controls, data_table))
+    def group_notes_update(self):
+        self.update()
+        self.downsample_cust_handler()
+        notes=self.fetchone("SELECT COALESCE(notes,'') FROM groups WHERE name = %s",
+                                self.group_dropdown.value)
+        if notes:
+            self.group_markup.text=div_html("notes.html",args=('Group',notes[0],)).text
+        else:
+            self.group_markup.text = div_html("notes.html",args=('Group','',)).text
+    def cust_notes_update(self):
+        self.update()
+        notes=self.fetchone("SELECT COALESCE(notes,'') FROM customers WHERE name = %s",
+                                self.cust_dropdown.value)
+        if notes:
+            self.cust_markup.text=div_html("notes.html",args=('Customer',notes[0],)).text
+        else:
+            self.cust_markup.text = div_html("notes.html",args=('Customer','',)).text

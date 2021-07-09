@@ -4,6 +4,7 @@ from bokeh.layouts import column, row
 
 from panels.new_customer import New_Customer
 from panels.survey import Survey
+from panels.export_csv import Export_Csv
 
 def new_customer_panel(NC):
     panel= (NC.desc(),
@@ -54,15 +55,29 @@ def survey_panel(SP):
             row(SP.submit())]
     #incl fig here when working
     return column(*panel)
+def export_panel(EXP):
+    panel= [EXP.desc(),
+            row(EXP.group_name_contains(),
+                EXP.group_dd(),
+                EXP.group_notes()
+                ),
+            row(EXP.cust_name_contains(),
+                EXP.cust_dd(),
+                EXP.cust_notes()
+                ),
+            EXP.set_button()]
+    controls = column(*panel)
+    return row(controls,EXP.set_datatable())
 
 if __name__[:10] == "bokeh_app_":
     ini_section = "local_stability"
     NC = New_Customer(ini_section=ini_section)
     SP = Survey(ini_section=ini_section)
+    EXP = Export_Csv(ini_section=ini_section)
 
     tab0 = Panel(child=new_customer_panel(NC), title="New Customer")
     tab1 = Panel(child=survey_panel(SP), title="Survey")
-    #tab2 = Panel(child=Export_Csv,title="Export CSV")
+    tab2 = Panel(child=export_panel(EXP),title="Export CSV")
 
-    l=Tabs(tabs=[tab0,tab1])
+    l=Tabs(tabs=[tab0,tab1,tab2])
     curdoc().add_root(l)
