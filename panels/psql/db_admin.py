@@ -1,8 +1,8 @@
 import psycopg2
-from config import config,StringTuple
+from panels.psql.config import config,StringTuple
 
 TEST_COMMAND = ('SELECT \'connection to postgres established.\'',)
-def batchExecuteSqlCommands(ini_section,SCHEMA=None,commands=TEST_COMMAND)
+def batchExecuteSqlCommands(ini_section,SCHEMA=None,commands=TEST_COMMAND):
     # code from postgres python tutorial
     conn = None
     try:

@@ -33,9 +33,15 @@ def survey_panel(SP):
                 SP.cust_notes()
                 ),
             )
-    for col in SP.Sliders:
-        panel += (row(col,SP.Sliders[col]),)
-
+    i=0
+    _row=None
+    for select in SP.Selects:
+        if i % 3 == 0:
+            if _row:
+                panel+=(row(*_row),)
+            _row=[]
+        _row.append(SP.Selects[select])
+        i+=1
     panel += (row(SP.cust_score(),SP.new_survey_notes()),
             row(SP.submit()),)
     #incl fig here when working

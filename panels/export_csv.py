@@ -2,7 +2,8 @@
 from bokeh.models import (Button, ColumnDataSource, CustomJS, DataTable,
                           NumberFormatter, RangeSlider, TableColumn)
 from panels.psql.config import *
-from panels.htmls.html_config import *
+from panels.htmls.html_config import div_html
+from panels.psql.bokeh import DBInfo
 
 from os.path import dirname, join
 
@@ -11,9 +12,10 @@ from bokeh.layouts import column, row
 from bokeh.models import (Button, ColumnDataSource, CustomJS, DataTable,
                           NumberFormatter, RangeSlider, TableColumn)
 
-class Export_Csv(DBI):
+
+class Export_Csv(DBInfo):
     def __init__(self,*args,**kwargs):
-        DBI.__init__(self,ini_section = kwargs['ini_section'])
+        DBInfo.__init__(self,ini_section = kwargs['ini_section'])
         survey_fields=f"""
         select column_name
         from information_schema.columns
@@ -30,30 +32,32 @@ class Export_Csv(DBI):
             self.fields[field]=TableColumn(field=field, title=field)
             self.data[field]=[]
         self.source=ColumnDataSource(data=self.data)
+
     def update():
+
         get_cols = \
-        """
-        SELECT {}
+        f"""
+        SELECT  c.name,g.name, {','.join(self.fields.keys())}
         FROM survey
-        JOIN customers USING (customer_id)
-        JOIN groups USING (group_id)
-        WHERE
+        JOIN customers c USING (customer_id)
+        JOIN groups g USING (group_id)
         """
         params = tuple()
         first = True
         if self.nameFilter.index("end") != 0:
             if first is False:
-                sqlStr += 'AND c.name ~* %s '
+                sqlStr += 'AND g.name = %s '
             else:
-                sqlStr += ' WHERE c.name ~* %s '
+                sqlStr += ' WHERE g.name = %s '
                 first = False
             params+= (self.nameFilter.get(),)
-        notes = self.fetchone("SELECT notes FROM groups WHERE name = %s",
-                                self.group_dropdown.value)
-        if notes[0]:
-            self.group_notes_desc.value = notes[0]
-        else:
-            self.group_notes_desc.value =""
+        if self.nameFilter.index("end") != 0:
+            if first is False:
+                sqlStr += 'AND c.name = %s '
+            else:
+                sqlStr += ' WHERE c.name = %s '
+                first = False
+            params+= (self.nameFilter.get(),)
         current = df[(df['salary'] >= slider.value[0]) & (df['salary'] <= slider.value[1])].dropna()
         source.data = {
             'name'             : current.name,
