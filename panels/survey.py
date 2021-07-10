@@ -6,16 +6,16 @@ from bokeh.models import ColumnDataSource, Div, Select, Slider, TextInput,Panel,
 
 from panels.psql.db_admin import DBAdmin
 from panels.htmls.html_config import div_html
-from panels.psql.bokeh import DBInfo
+from panels.psql.bokeh_dbi import VarcharDBI
 
-class Survey(DBInfo):
+class Survey(VarcharDBI):
     survey_options=[str(i) for i in range(1,6)]
     income_options=[str(i) for i in range(0,50000,3000)]
     def __init__(self,*args,**kwargs):
-        DBInfo.__init__(self,ini_section = kwargs['ini_section'])
-        self.aurvey_fields()
+        VarcharDBI.__init__(self,ini_section = kwargs['ini_section'])
+        self.survey_fields()
 
-    def aurvey_fields(self):
+    def survey_fields(self):
         survey_fields=f"""
         select column_name
         from information_schema.columns

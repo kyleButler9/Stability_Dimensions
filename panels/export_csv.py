@@ -1,9 +1,8 @@
 from os.path import dirname, join
 from collections import OrderedDict
 
-from panels.psql.config import *
 from panels.htmls.html_config import div_html
-from panels.psql.bokeh import DBInfo
+from panels.psql.bokeh_dbi import VarcharDBI
 from panels.psql.db_admin import DBAdmin
 
 from bokeh.io import curdoc
@@ -11,9 +10,9 @@ from bokeh.layouts import column, row
 from bokeh.models import (Button, ColumnDataSource, CustomJS, DataTable,
                           NumberFormatter, RangeSlider, TableColumn)
 
-class Export_Csv(DBInfo):
+class Export_Csv(VarcharDBI):
     def __init__(self,*args,**kwargs):
-        DBInfo.__init__(self,ini_section = kwargs['ini_section'])
+        VarcharDBI.__init__(self,ini_section = kwargs['ini_section'])
         survey_fields=f"""
         select column_name
         from information_schema.columns
@@ -33,41 +32,45 @@ class Export_Csv(DBInfo):
     def desc(self):
         return div_html("export_csv.html",sizing_mode="stretch_width")
     def update(self):
+        columns,d=self.output_data()
+        columns=[s.replace('.','_') for s in columns]
+        data = dict.fromkeys(columns,[])
+        for survey in d[1:]:
+            data['c_name'].append(survey[0])
+            data['g_name'].append(survey[1])
+            i=2
+            for key in self.fields.keys():
+                data[key].append(survey[i])
+                i+=1
+        self.source.data = data
+    def output_data(self):
+        cols = ['c.name','g.name']+list(self.fields.keys())
         get_vals = \
         f"""
-        SELECT  c.name,g.name, {','.join(self.fields.keys())}
+        SELECT {','.join(cols)}
         FROM survey
         JOIN customers c USING (customer_id)
         LEFT OUTER JOIN groups g USING (group_id)
         """
         params = []
         first = True
-        if self.group_dropdown.value != 'None':
-            if first is False:
-                get_vals += 'AND g.name = %s '
-            else:
-                get_vals += ' WHERE g.name = %s '
-                first = False
-            params.append(self.group_dropdown.value)
-        if self.cust_dropdown.value != 'None':
+        if self.cname != 'None':
             if first is False:
                 get_vals += 'AND c.name = %s '
             else:
                 get_vals += ' WHERE c.name = %s '
                 first = False
             params.append(self.cust_dropdown.value)
-        data = self.fetchall(get_vals+';',*params)
-        d = dict(c_name=[],g_name=[])
-        for key in self.fields.keys():
-            d[key]=[]
-        for dat in data:
-            d['c_name'].append(dat[0])
-            d['g_name'].append(dat[1])
-            i=2
-            for key in self.fields.keys():
-                d[key].append(dat[i])
-                i+=1
-        self.source.data = d
+        elif self.gname != 'None':
+            if first is False:
+                get_vals += 'AND g.name = %s '
+            else:
+                get_vals += ' WHERE g.name = %s '
+                first = False
+            params.append(self.group_dropdown.value)
+        data=self.fetchall(get_vals+';',*params)
+        return cols, data
+
     def set_button(self):
         button = Button(label="Download", button_type="success")
         button.js_on_click(CustomJS(args=dict(source=self.source),
@@ -76,20 +79,17 @@ class Export_Csv(DBInfo):
     def set_datatable(self):
         self.data_table = DataTable(source=self.source, columns=[self.fields[field] for field in self.fields.keys()], width=800)
         return self.data_table
-    def group_notes_update(self):
+    def group_selected(self,gname):
+        self.gname=gname
+        self.group_notes_update()
+        try:
+            self.downsample_cust_handler(self.downsample_cust.value)
+        except AttributeError:
+            self.cust_name_contains()
+            self.downsample_cust_handler(self.downsample_cust.value)
+        finally:
+            self.update()
+    def customer_selected(self,cname):
+        self.cname=cname
         self.update()
-        self.downsample_cust_handler()
-        notes=self.fetchone("SELECT COALESCE(notes,'') FROM groups WHERE name = %s",
-                                self.group_dropdown.value)
-        if notes:
-            self.group_markup.text=div_html("notes.html",args=('Group',notes[0],)).text
-        else:
-            self.group_markup.text = div_html("notes.html",args=('Group','',)).text
-    def cust_notes_update(self):
-        self.update()
-        notes=self.fetchone("SELECT COALESCE(notes,'') FROM customers WHERE name = %s",
-                                self.cust_dropdown.value)
-        if notes:
-            self.cust_markup.text=div_html("notes.html",args=('Customer',notes[0],)).text
-        else:
-            self.cust_markup.text = div_html("notes.html",args=('Customer','',)).text
+        self.cust_notes_update()

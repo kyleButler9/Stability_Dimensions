@@ -14,7 +14,7 @@ def config(ini_file='database.ini', ini_section='local_stability'):
         for param in params:
             db[param[0]] = param[1]
     elif len(parser.read(ini_file)) == 0:
-        raise Exception("No {0} in same directory as {1}".format(ini_file,__name__))
+        raise Exception("No {0} in same directory as {1}".format(ini_file,__file__))
 
     else:
         raise Exception('Section {0} not found in the {1} file'.format(ini_section, ini_file))

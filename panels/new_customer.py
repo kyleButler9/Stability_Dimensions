@@ -3,11 +3,13 @@ from bokeh.models import Select, TextInput,Button
 
 from panels.psql.config import *
 from panels.htmls.html_config import *
+from panels.psql.bokeh_dbi import VarcharDBI
 
 
-class New_Customer(DBI):
+# this class needs to make use of VarcharDBI like Survey and Export Csv do
+class New_Customer(VarcharDBI):
     def __init__(self,*args,**kwargs):
-        DBI.__init__(self,ini_section = kwargs['ini_section'])
+        VarcharDBI.__init__(self,ini_section = kwargs['ini_section'])
     def cust_name(self):
         self.cust_name_=TextInput(title="Name")
         return self.cust_name_
@@ -27,7 +29,6 @@ class New_Customer(DBI):
         if len(self.cust_name_.value) == 0:
             doNothing=True
         if len(self.cust_address_.value) == 0 and len(self.cust_notes_.value) == 0:
-            print('ins cust')
             new_cust = \
             """
             DROP TABLE IF EXISTS user_inputs;

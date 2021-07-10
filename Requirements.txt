@@ -1,3 +1,2 @@
 Bokeh
-Pandas
 psycopg2

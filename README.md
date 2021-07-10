@@ -18,3 +18,13 @@ To view the app directly from a Bokeh server, from the parent directory and
 execute the command:
 
     bokeh serve --show Stability_Dimensions
+or
+
+    bokeh serve --port 5432 --allow-websocket-origin=192.168.0.1:5432 --show Stability_Dimensions
+
+Where 192.168.0.1 is your IPv4 address and 5432 is your port. Note that to share
+on LAN, you must open an inbound rule on the your firewall at that port.
+
+It is advised that you run this in a virtualenv environment, save this repo
+in the Scripts folder in the environment created by virtualenv, and execute the
+above commands from the Scripts folder.

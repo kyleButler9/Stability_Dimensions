@@ -42,6 +42,8 @@ def survey_panel(SP):
             _row=[]
         _row.append(SP.Selects[select])
         i+=1
+    if len(_row) !=0:
+        panel.append(row(*_row))
     i=0
     _row=None
     for select in SP.Selects:
@@ -51,6 +53,8 @@ def survey_panel(SP):
             _row=[]
         _row.append(select)
         i+=1
+    if len(_row) !=0:
+        panel.append(row(*_row))
     panel += [row(SP.cust_score(),SP.new_survey_notes()),
             row(SP.submit())]
     #incl fig here when working
