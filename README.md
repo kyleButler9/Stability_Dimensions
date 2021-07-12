@@ -1,9 +1,12 @@
 # Stability_Dimensions
 
 ## Overview
-![alt text](https://github.com/kyleButler9/Stability_Dimensions//back.png?raw=true)
-![alt text](https://github.com/kyleButler9/Stability_Dimensions//front.png?raw=true)
-![alt text](https://github.com/kyleButler9/Stability_Dimensions//survey.png?raw=true)
+### panel 1
+![alt text](https://github.com/kyleButler9/Stability_Dimensions/blob/main/back.png)
+### panel 2
+![alt text](https://github.com/kyleButler9/Stability_Dimensions/blob/main/survey.png)
+### panel 3
+![alt text](https://github.com/kyleButler9/Stability_Dimensions/blob/main/front.png)
 
 ## Initialization
 
