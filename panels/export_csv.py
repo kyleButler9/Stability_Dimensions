@@ -18,7 +18,7 @@ class Export_Csv(VarcharDBI):
         from information_schema.columns
         where table_schema in ('{self.schema}')
         and table_name in ('survey')
-        and column_name not in {repr(DBAdmin.non_survey_columns)}
+        and column_name not in {DBAdmin.non_survey_columns.string_repr()}
         order by ordinal_position;
         """
         self.fields=OrderedDict()

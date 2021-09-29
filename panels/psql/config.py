@@ -22,13 +22,15 @@ def config(ini_file='database.ini', ini_section='local_stability'):
 
 RETRY_CONNECTION_MAX_COUNT = 5
 
-class StringTuple(tuple):
-    def __repr__(self):
-        s="("
+class tuple(tuple):
+    # a method that allows smoother transition
+    # between python and postgre tuples
+    def string_repr(self):
+        s=["("]
         for i in self:
-            s+="\'"+str(i)+"\',"
-        s=s[:-1]+")"
-        return s
+            s.append("'"+str(i)+"',")
+        s[-1]=s[-1][:-1]+")"
+        return ''.join(s)
 
 class DBI:
     def __init__(self,SCHEMA='customers',**kwargs):
@@ -52,6 +54,7 @@ class DBI:
                 self.ini_section=kwargs['ini_section']
 
             params = config(ini_section=self.ini_section)
+            self.conn=None
             self.conn = psycopg2.connect(**params)
             self.cur = self.conn.cursor()
             if 'schema' in kwargs:
@@ -66,63 +69,66 @@ class DBI:
                     print('failed conn or search_path setting to ',self.schema,try_count,'times.')
                     try_count+=1
                     # this function recursively calls itself here to reattempt the connection
-                    self.connectToDB(ini_section,try_count,self.schema)
+                    self.connectToDB(ini_section=self.ini_section,try_count=try_count,schema=self.schema)
                 else:
                     print('failed conn or search_path setting to ',self.schema,try_count,'times.')
                     print('No more attempts... check cable.')
             else:
-                print('Connected. Search_path set to',self.schema)
+                print('Connected. active schema: ',self.schema)
         except (Exception, psycopg2.DatabaseError) as error:
             print(error)
-            print('err')
             self.conn = None
         finally:
             return self
     def restartConnection(self,**kwargs):
-        print('\nretrying connection...')
-        if 'ini_section' in kwargs:
-            self.connectToDB(ini_section=kwargs['ini_section'])
+        # recursively try to restart the connection to database.
+        attempt=kwargs['attempt']
+        if 'attlim' in kwargs:
+            attlim =kwargs['attlim']
         else:
-            self.connectToDB()
-    def insertToDB(self,sql,*args):
-        # includes a commit in body.
+            attlim=5
+        if 'connKwargs' in kwargs:
+            connKwargs=kwargs['connKwargs']
+        else:
+            connKwargs=dict()
+        if attempt < attlim:
+            print('retrying connection...attempt #',attempt)
+            self.connectToDB(**connKwargs)
+            if self.testConnection()==True:
+               return 'Connection re-established.'
+            else:
+                attempt+=1
+                self.restartConnection(attempt=attempt,attlim=attlim,connKwargs=connKwargs)
+        else:
+            return 'Connection unable to be re-established.'
+    def execute_and_commit(self,sql,*args):
         try:
             cur = self.conn.cursor()
-            if len(args) != 0:
-                cur.execute(sql,(*args,))
-            else:
-                cur.execute(sql)
+            cur.execute(sql,(*args,))
             try:
-                out=cur.fetchone()
+                ret=cur.fetchone()
             except:
-                out='success!'
+                ret='operation successful.\nNo return requested.'
             finally:
                 cur.close()
                 self.conn.commit()
         except (Exception, psycopg2.DatabaseError) as error:
-            print(error)
-            print('\nretrying connection...')
-            self.restartConnection()
-            try:
-                cur = self.conn.cursor()
-                if len(args) != 0:
-                    cur.execute(sql,(*args,))
-                else:
-                    cur.execute(sql)
-                out=cur.fetchone()
-                cur.close()
-                self.conn.commit()
-            except (Exception, psycopg2.DatabaseError) as error:
-                out=error
-            finally:
-                pass
+            if self.testConnection()==True:
+                print(error)
+                ret = error
+            else:
+                ret='connection dropped.'
         finally:
-            return out
+            return ret
+
+    def insertToDB(self,sql,*args):        
+        return self.execute_and_commit(self,sql,*args)
+
     def fetchone(self,sql,*args):
         #returns one tuple
         # does not commit
         try:
-            if self.testConnection() == 0:
+            if self.testConnection() == False:
                 self.restartConnection()
             self.cur = self.conn.cursor()
             if len(args) != 0:
@@ -137,7 +143,7 @@ class DBI:
     def fetchall(self,sql,*args):
         #returns a list of tuples
         # does not commit
-        if self.testConnection() == 0:
+        if self.testConnection() == False:
             self.restartConnection()
         if len(args) != 0:
             self.cur.execute(sql,(*args,))
@@ -153,9 +159,5 @@ class DBI:
         finally:
             return back
 if __name__ == "__main__":
-    DBI = DBI(ini_section='local_launcher')
-    from datetime import datetime
-    from sql import *
-    now =datetime.now()
-    DBI.cur.execute(testConnection)
-    print(len(DBI.cur.fetchall()))
+    db = DBI(ini_section='local_launcher')
+    print('is connected: ',db.testConnection()==True)

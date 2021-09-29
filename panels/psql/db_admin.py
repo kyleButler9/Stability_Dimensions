@@ -23,7 +23,7 @@ def batchExecuteSqlCommands(ini_section,SCHEMA=None,commands=TEST_COMMAND):
             conn.close()
 
 class DBAdmin:
-    non_survey_columns=StringTuple(['time','notes','score','survey_id','customer_id'])
+    non_survey_columns=tuple(['time','notes','score','survey_id','customer_id'])
     createTableCommands = (
         """
         CREATE SCHEMA customers;
