@@ -2,7 +2,7 @@ from configparser import ConfigParser
 import psycopg2
 from os.path import join,dirname
 #   config returns a dictionary
-def config(ini_file='database.ini', ini_section='local_stability'):
+def read_config_file(ini_file='database.ini', ini_section='local_stability'):
     # create a parser
     parser = ConfigParser()
     # read config file
@@ -20,9 +20,7 @@ def config(ini_file='database.ini', ini_section='local_stability'):
         raise Exception('Section {0} not found in the {1} file'.format(ini_section, ini_file))
     return db
 
-RETRY_CONNECTION_MAX_COUNT = 5
-
-class tuple(tuple):
+class ptuple(tuple):
     # a method that allows smoother transition
     # between python and postgre tuples
     def string_repr(self):
@@ -33,6 +31,8 @@ class tuple(tuple):
         return ''.join(s)
 
 class DBI:
+    conn=None
+    MAX_CONNECTION_ATTEMPTS=5
     def __init__(self,SCHEMA='customers',**kwargs):
         # at the start of every scession need to run "set search_path = beta;"
         # then you can drop beta. everywhere
@@ -43,42 +43,22 @@ class DBI:
 
     def connectToDB(self,**kwargs):
         try:
-            # read database configuration
-            # if self.conn: #is not None
-            #     self.conn.close()
-            if 'try_count' in kwargs:
-                try_count = kwargs['try_count']
-            else:
-                try_count=0
             if "ini_section" in kwargs:
                 self.ini_section=kwargs['ini_section']
-
-            params = config(ini_section=self.ini_section)
-            self.conn=None
+            params = read_config_file(ini_section=self.ini_section)
+            if self.conn is not None:
+                self.conn.close()
             self.conn = psycopg2.connect(**params)
-            self.cur = self.conn.cursor()
+            cur = self.conn.cursor()
             if 'schema' in kwargs:
                 self.schema=kwargs['schema']
-            else:
-                self.schema='customers'
-            self.cur.execute(f"SET search_path='{self.schema}';")
+            cur.execute(f"SET search_path='{self.schema}';")
             self.conn.commit()
-            self.cur.execute('show search_path;')
-            if self.cur.fetchone()[0] != self.schema:
-                if try_count < RETRY_CONNECTION_MAX_COUNT:
-                    print('failed conn or search_path setting to ',self.schema,try_count,'times.')
-                    try_count+=1
-                    # this function recursively calls itself here to reattempt the connection
-                    self.connectToDB(ini_section=self.ini_section,try_count=try_count,schema=self.schema)
-                else:
-                    print('failed conn or search_path setting to ',self.schema,try_count,'times.')
-                    print('No more attempts... check cable.')
-            else:
-                print('Connected. active schema: ',self.schema)
         except (Exception, psycopg2.DatabaseError) as error:
             print(error)
             self.conn = None
         finally:
+            cur.close()
             return self
     def restartConnection(self,**kwargs):
         # recursively try to restart the connection to database.
@@ -86,7 +66,7 @@ class DBI:
         if 'attlim' in kwargs:
             attlim =kwargs['attlim']
         else:
-            attlim=5
+            attlim=self.MAX_CONNECTION_ATTEMPTS
         if 'connKwargs' in kwargs:
             connKwargs=kwargs['connKwargs']
         else:
@@ -128,36 +108,50 @@ class DBI:
         #returns one tuple
         # does not commit
         try:
-            if self.testConnection() == False:
-                self.restartConnection()
-            self.cur = self.conn.cursor()
-            if len(args) != 0:
-                self.cur.execute(sql,(*args,))
-            else:
-                self.cur.execute(sql)
-            return self.cur.fetchone()
+            cur = self.conn.cursor()
+            cur.execute(sql,(*args,))
+            out=cur.fetchone()
         except (Exception, psycopg2.DatabaseError) as error:
-            print(error)
-            return None
+            if self.testConnection() == False:
+                if self.restartConnection() == 'Connection re-established.':
+                    return self.fetchone(sql,*args)
+            else:
+                print(error)
+                return (error,)
+        finally:
+            cur.close()
+            return out
+
 
     def fetchall(self,sql,*args):
-        #returns a list of tuples
+        # returns a list of tuples
         # does not commit
-        if self.testConnection() == False:
-            self.restartConnection()
-        if len(args) != 0:
-            self.cur.execute(sql,(*args,))
-        else:
-            self.cur.execute(sql)
-        return self.cur.fetchall()
+        try:
+            cur = self.conn.cursor()
+            cur.execute(sql,(*args,))
+            all =cur.fetchall()
+        except (Exception, psycopg2.DatabaseError) as error:
+            if self.testConnection() == False:
+                if self.restartConnection() == 'Connection re-established.':
+                    return self.fetchall(sql,*args)
+            else:
+                print(error)
+                return [(error,)]
+        finally:
+            cur.close()
+            return all
+
     def testConnection(self):
         try:
-            self.cur.execute("SELECT 1")
-            back = self.cur.fetchone()[0]
+            cur = self.conn.cursor()
+            cur.execute("SELECT 1")
+            back = cur.fetchone()[0]
         except:
             back = 0
         finally:
+            cur.close()
             return back
 if __name__ == "__main__":
     db = DBI(ini_section='local_launcher')
     print('is connected: ',db.testConnection()==True)
+    print(db.fetchall('select * from survey'))
