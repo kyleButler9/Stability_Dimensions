@@ -34,12 +34,12 @@ class DBI:
     conn=None
     MAX_CONNECTION_ATTEMPTS=5
     def __init__(self,SCHEMA='customers',**kwargs):
-        # at the start of every scession need to run "set search_path = beta;"
-        # then you can drop beta. everywhere
         if 'ini_section' in kwargs:
             self.ini_section = kwargs['ini_section']
         self.schema=SCHEMA
         self.connectToDB()
+        if self.testConnection()==False:
+            self.restartConnection(attempt=1)
 
     def connectToDB(self,**kwargs):
         try:
@@ -53,12 +53,12 @@ class DBI:
             if 'schema' in kwargs:
                 self.schema=kwargs['schema']
             cur.execute(f"SET search_path='{self.schema}';")
+            cur.close()
             self.conn.commit()
         except (Exception, psycopg2.DatabaseError) as error:
             print(error)
             self.conn = None
         finally:
-            cur.close()
             return self
     def restartConnection(self,**kwargs):
         # recursively try to restart the connection to database.
@@ -111,15 +111,22 @@ class DBI:
             cur = self.conn.cursor()
             cur.execute(sql,(*args,))
             out=cur.fetchone()
+            cur.close()
         except (Exception, psycopg2.DatabaseError) as error:
+            try:
+                cur.execute("ROLLBACK;")
+            except:
+                self.conn.close()
+                self.restartConnection(attempt=0)
             if self.testConnection() == False:
-                if self.restartConnection() == 'Connection re-established.':
-                    return self.fetchone(sql,*args)
+                if self.restartConnection(attempt=0) == 'Connection re-established.':
+                    out= self.fetchone(sql,*args)
+                else:
+                    out='Connection unable to be re-established.'
             else:
                 print(error)
-                return (error,)
+                out= (error,)
         finally:
-            cur.close()
             return out
 
 
@@ -129,29 +136,37 @@ class DBI:
         try:
             cur = self.conn.cursor()
             cur.execute(sql,(*args,))
-            all =cur.fetchall()
+            out =cur.fetchall()
+            cur.close()
         except (Exception, psycopg2.DatabaseError) as error:
+            try:
+                cur.execute("ROLLBACK;")
+            except:
+                self.conn.close()
+                self.restartConnection(attempt=0)
             if self.testConnection() == False:
-                if self.restartConnection() == 'Connection re-established.':
-                    return self.fetchall(sql,*args)
+                print('here1')
+                if self.restartConnection(attempt=0) == 'Connection re-established.':
+                    out= self.fetchall(sql,*args)
+                else:
+                    out = 'Connection unable to be re-established.'
             else:
                 print(error)
-                return [(error,)]
+                out= [(error,)]
         finally:
-            cur.close()
-            return all
+            return out
 
     def testConnection(self):
         try:
             cur = self.conn.cursor()
             cur.execute("SELECT 1")
             back = cur.fetchone()[0]
+            cur.close()
         except:
             back = 0
         finally:
-            cur.close()
             return back
 if __name__ == "__main__":
     db = DBI(ini_section='local_launcher')
     print('is connected: ',db.testConnection()==True)
-    print(db.fetchall('select * from survey'))
+    print(db.fetchall('select * from su3rvey;'))
