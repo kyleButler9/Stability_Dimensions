@@ -86,26 +86,31 @@ class DBI:
             cur = self.conn.cursor()
             cur.execute(sql,(*args,))
             try:
-                ret=cur.fetchone()
+                out=cur.fetchone()
             except:
-                ret='operation successful.\nNo return requested.'
+                out=('operation successful.\nNo return requested.',)
             finally:
                 cur.close()
                 self.conn.commit()
         except (Exception, psycopg2.DatabaseError) as error:
-            if self.testConnection()==True:
-                print(error)
-                ret = error
+            try:
+                cur.execute("ROLLBACK;")
+                cur.close()
+            except:
+                self.restartConnection(attempt=0)
+            if self.testConnection() == True:
+                    out=self.execute_and_commit(sql,*args)
             else:
-                ret='connection dropped.'
+                print(error)
+                out='Connection unable to be re-established.'
         finally:
-            return ret
+            return out
 
     def insertToDB(self,sql,*args):        
         return self.execute_and_commit(self,sql,*args)
 
     def fetchone(self,sql,*args):
-        #returns one tuple
+        # returns one tuple
         # does not commit
         try:
             cur = self.conn.cursor()
@@ -115,15 +120,13 @@ class DBI:
         except (Exception, psycopg2.DatabaseError) as error:
             try:
                 cur.execute("ROLLBACK;")
+                cur.close()
             except:
-                self.conn.close()
                 self.restartConnection(attempt=0)
-            if self.testConnection() == False:
-                if self.restartConnection(attempt=0) == 'Connection re-established.':
-                    out= self.fetchone(sql,*args)
-                else:
-                    out='Connection unable to be re-established.'
+            if self.testConnection() == True:
+                out= self.fetchone(sql,*args)
             else:
+                out='Connection unable to be re-established.'
                 print(error)
                 out= (error,)
         finally:
@@ -141,16 +144,13 @@ class DBI:
         except (Exception, psycopg2.DatabaseError) as error:
             try:
                 cur.execute("ROLLBACK;")
+                cur.close()
             except:
-                self.conn.close()
                 self.restartConnection(attempt=0)
             if self.testConnection() == False:
-                print('here1')
-                if self.restartConnection(attempt=0) == 'Connection re-established.':
-                    out= self.fetchall(sql,*args)
-                else:
-                    out = 'Connection unable to be re-established.'
+                out= self.fetchall(sql,*args)
             else:
+                out = 'Connection unable to be re-established.'
                 print(error)
                 out= [(error,)]
         finally:
@@ -162,7 +162,8 @@ class DBI:
             cur.execute("SELECT 1")
             back = cur.fetchone()[0]
             cur.close()
-        except:
+        except (Exception, psycopg2.DatabaseError) as error:
+            print(error)
             back = 0
         finally:
             return back

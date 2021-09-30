@@ -6,7 +6,7 @@ def batchExecuteSqlCommands(ini_section,SCHEMA=None,commands=TEST_COMMAND):
     # code from postgres python tutorial
     conn = None
     try:
-        params = config(ini_section=ini_section)
+        params = read_config_file(ini_section=ini_section)
         conn = psycopg2.connect(**params)
         cur = conn.cursor()
         if SCHEMA:
