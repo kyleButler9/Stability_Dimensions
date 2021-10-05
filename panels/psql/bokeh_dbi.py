@@ -71,9 +71,10 @@ class VarcharDBI(DBI):
             self.group_markup.text=self.notes_to_div('Group',notes)
     def notes_to_div(self,cat,notes):
         if notes:
-            return div_html("notes.html",args=(cat,notes[0],)).text
+            notes=notes=[0]
         else:
-            return div_html("notes.html",args=(cat,'',)).text
+            notes=''
+        return div_html("notes.html",args=(cat,notes,)).text
     def downsample_group_handler(self,substr):
         groups = self.fetchall("SELECT name FROM groups WHERE name ~* %s;",substr)
         if len(groups) == 1:
