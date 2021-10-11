@@ -52,7 +52,7 @@ class DBI:
             cur = self.conn.cursor()
             if 'schema' in kwargs:
                 self.schema=kwargs['schema']
-            cur.execute(f"SET search_path='{self.schema}';")
+            cur.execute("SET search_path=%s;",self.schema)
             cur.close()
             self.conn.commit()
         except (Exception, psycopg2.DatabaseError) as error:
@@ -99,7 +99,7 @@ class DBI:
             except:
                 self.restartConnection(attempt=0)
             if self.testConnection() == True:
-                    out=self.execute_and_commit(sql,*args)
+                out=self.execute_and_commit(sql,*args)
             else:
                 print(error)
                 out='Connection unable to be re-established.'
@@ -147,7 +147,7 @@ class DBI:
                 cur.close()
             except:
                 self.restartConnection(attempt=0)
-            if self.testConnection() == False:
+            if self.testConnection() == True:
                 out= self.fetchall(sql,*args)
             else:
                 out = 'Connection unable to be re-established.'
@@ -160,13 +160,13 @@ class DBI:
         try:
             cur = self.conn.cursor()
             cur.execute("SELECT 1")
-            back = cur.fetchone()[0]
+            conn_established = cur.fetchone()[0]
             cur.close()
         except (Exception, psycopg2.DatabaseError) as error:
             print(error)
-            back = 0
+            conn_established = False
         finally:
-            return back
+            return conn_established
 if __name__ == "__main__":
     db = DBI(ini_section='local_launcher')
     print('is connected: ',db.testConnection()==True)

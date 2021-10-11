@@ -17,7 +17,7 @@ def new_customer_panel(NC):
                 NC.cust_notes(),
                 NC.cust_button()
                 ),
-            row(NC.new_group(),
+            row(NC.new_group_name(),
                 NC.new_group_notes(),
                 NC.insert_new_group_button()
                 ),
