@@ -40,6 +40,7 @@ class DBI:
         self.schema=SCHEMA
         self.connectToDB()
         if self.testConnection()==False:
+            print('!!!!!!!!!!!here!!!!!!!!!!!!!')
             self.restartConnection(attempt=1)
 
     def connectToDB(self,**kwargs):
@@ -53,7 +54,7 @@ class DBI:
             cur = self.conn.cursor()
             if 'schema' in kwargs:
                 self.schema=kwargs['schema']
-            cur.execute("SET search_path=%s;",self.schema)
+            cur.execute(f"SET search_path={self.schema};")
             cur.close()
             self.conn.commit()
         except (Exception, psycopg2.DatabaseError) as error:
@@ -107,7 +108,7 @@ class DBI:
         finally:
             return out
 
-    def fetchone(self,sql,*args):
+    def fetchone(self,sql,*args,**kwargs):
         # returns one tuple
         # does not commit
         try:
@@ -116,22 +117,26 @@ class DBI:
             out=cur.fetchone()
             cur.close()
         except (Exception, psycopg2.DatabaseError) as error:
-            print(error)
             try:
                 cur.execute("ROLLBACK;")
                 cur.close()
-                return [(error,)]
             except:
                 self.restartConnection(attempt=0)
             if self.testConnection() == True:
-                out= self.fetchone(sql,*args)
+                if 'attempt' not in kwargs:
+                    print(error)
+                    out= self.fetchone(sql,*args,attlim=5,attempt=1)
+                elif kwargs['attempt'] < kwargs['attlim']:
+                    out= self.fetchone(sql,*args,attlim=3,attempt=kwargs['attempt']+1)
+                else:
+                    out=(error,)
             else:
                 out= (error,)
         finally:
             return out
 
 
-    def fetchall(self,sql,*args):
+    def fetchall(self,sql,*args,**kwargs):
         # returns a list of tuples
         # does not commit
         try:
@@ -140,15 +145,18 @@ class DBI:
             out =cur.fetchall()
             cur.close()
         except (Exception, psycopg2.DatabaseError) as error:
-            print(error)
             try:
                 cur.execute("ROLLBACK;")
-                cur.close()
-                return [(error,)]
             except:
                 self.restartConnection(attempt=0)
             if self.testConnection() == True:
-                out= self.fetchall(sql,*args)
+                if 'attempt' not in kwargs:
+                    print(error)
+                    out= self.fetchall(sql,*args,attlim=5,attempt=1)
+                elif kwargs['attempt'] < kwargs['attlim']:
+                    out= self.fetchall(sql,*args,attlim=3,attempt=kwargs['attempt']+1)
+                else:
+                    out=[(error,)]
             else:
                 out= [(error,)]
         finally:

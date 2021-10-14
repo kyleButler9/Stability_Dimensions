@@ -8,26 +8,26 @@ from panels.export_csv import Export_Csv
 
 def new_customer_panel(NC):
     panel= (NC.desc(),
-            row(NC.group_name_contains(),
-                NC.group_dd(),
-                NC.group_notes_description()
+            row(NC.class_name_contains(),
+                NC.class_dd(),
+                NC.class_notes_description()
                 ),
             row(NC.cust_name(),
                 NC.cust_address(),
                 NC.cust_notes(),
                 NC.cust_button()
                 ),
-            row(NC.new_group_name(),
-                NC.new_group_notes(),
-                NC.insert_new_group_button()
+            row(NC.new_class_name(),
+                NC.new_class_notes(),
+                NC.insert_new_class_button()
                 ),
             )
     return column(*panel)
 def survey_panel(SP):
     panel= [SP.desc(),
-            row(SP.group_name_contains(),
-                SP.group_dd(),
-                SP.group_notes()
+            row(SP.class_name_contains(),
+                SP.class_dd(),
+                SP.class_notes()
                 ),
             row(SP.cust_name_contains(),
                 SP.cust_dd(),
@@ -61,9 +61,9 @@ def survey_panel(SP):
     return column(*panel)
 def export_panel(EXP):
     panel= [EXP.desc(),
-            row(EXP.group_name_contains(),
-                EXP.group_dd(),
-                EXP.group_notes()
+            row(EXP.class_name_contains(),
+                EXP.class_dd(),
+                EXP.class_notes()
                 ),
             row(EXP.cust_name_contains(),
                 EXP.cust_dd(),
@@ -76,12 +76,13 @@ def export_panel(EXP):
 if __name__[:10] == "bokeh_app_":
     ini_section = "local_stability"
     NC = New_Customer(ini_section=ini_section)
-    SP = Survey(ini_section=ini_section)
-    EXP = Export_Csv(ini_section=ini_section)
+    #SP = Survey(ini_section=ini_section)
+    #EXP = Export_Csv(ini_section=ini_section)
 
     tab0 = Panel(child=new_customer_panel(NC), title="New Customer")
-    tab1 = Panel(child=survey_panel(SP), title="Survey")
-    tab2 = Panel(child=export_panel(EXP),title="Export CSV")
+    #tab1 = Panel(child=survey_panel(SP), title="Survey")
+    #tab2 = Panel(child=export_panel(EXP),title="Export CSV")
 
-    l=Tabs(tabs=[tab0,tab1,tab2])
+    #l=Tabs(tabs=[tab0,tab1,tab2])
+    l=Tabs(tabs=[tab0])
     curdoc().add_root(l)

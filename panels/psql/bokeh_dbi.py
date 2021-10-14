@@ -1,25 +1,26 @@
 
-from bokeh.models import Select, TextInput
+from typing import Text
+from bokeh.models import Select, TextInput,Div
 from bokeh.events import MenuItemClick
 
 from panels.psql.config import *
 from panels.psql.db_admin import *
 from panels.htmls.html_config import init_notes_div,format_notes
 
-class VarcharDBI(DBI):
+class HierarchicalFields(DBI):
     cname="None"
     gname="''"
-    def group_name_contains(self):
-        self.downsample_groups=TextInput(title="Group name contains:")
-        self.downsample_groups.on_change('value', lambda attr, old, new: self.downsample_group_handler(new.strip()))
-        return self.downsample_groups
-    def group_dd(self):
-        self.groups = self.get_10_groups()
-        self.group_dropdown=Select(title="Group",
+    def class_name_contains(self):
+        self.downsample_classes=TextInput(title="class name contains:")
+        self.downsample_classes.on_change('value', lambda attr, old, new: self.downsample_class_handler(new.strip()))
+        return self.downsample_classes
+    def class_dd(self):
+        self.classes = self.get_10_classes()
+        self.class_dropdown=Select(title="class",
                 value=self.gname,
-                options=self.groups)
-        self.group_dropdown.on_change('value',lambda attr, old, new: self.group_selected(new))
-        return self.group_dropdown
+                options=self.classes)
+        self.class_dropdown.on_change('value',lambda attr, old, new: self.class_selected(new))
+        return self.class_dropdown
     def cust_dd(self):
         self.custs = self.get_10_customers()
         self.cust_dropdown=Select(title="Customers",
@@ -28,19 +29,19 @@ class VarcharDBI(DBI):
         self.cust_dropdown.on_change('value',lambda attr, old, new: self.customer_selected(new))
         return self.cust_dropdown
     
-    def get_10_groups(self):
+    def get_10_classes(self):
         try:
-            group_name_substr=self.downsample_groups.value.strip()
+            class_name_substr=self.downsample_classes.value.strip()
         except AttributeError:
-            group_name_substr="''"
-        groups = self.fetchall("SELECT name FROM groups WHERE name ~* %s limit 10;",group_name_substr)
-        if len(groups) == 1:
-            self.group_selected(groups[0][0])
-        elif len(groups) > 1:
-            self.group_selected("''")
+            class_name_substr="''"
+        classes = self.fetchall("SELECT name FROM classes WHERE name ~* %s limit 10;",class_name_substr)
+        if len(classes) == 1:
+            self.class_selected(classes[0][0])
+        elif len(classes) > 1:
+            self.class_selected("''")
         else:
-            print('no group name selected with \ngroup name substr:',group_name_substr)
-        return [group[0] for group in groups]
+            print('no class name selected with \nclass name substr:',class_name_substr)
+        return [c[0] for c in classes]
     def get_10_customers(self):
         try:
             cust_name_substr=self.downsample_cust.value.strip()
@@ -49,10 +50,10 @@ class VarcharDBI(DBI):
         customers = self.fetchall("""
             SELECT c.name
             FROM customers c
-            JOIN groups USING (group_id)
+            JOIN classes USING (class)
             LEFT OUTER JOIN survey USING (customer_id)
             WHERE c.name ~* %s
-            AND groups.name ~* %s
+            AND classes.name ~* %s
             order by survey.time desc
             limit 10;
             """,
@@ -63,11 +64,11 @@ class VarcharDBI(DBI):
         elif len(customers) > 1:
             self.customer_selected("None")
         else:
-            print('no customer selected with \nname substr:',cust_name_substr,'\n group substr:',self.gname)
+            print('no customer selected with \nname substr:',cust_name_substr,'\n class substr:',self.gname)
         return [customer[0] for customer in customers]
-    def group_selected(self,gname):
+    def class_selected(self,gname):
         self.gname=gname
-        self.group_notes_update()
+        self.class_notes_update()
         try:
             cust_substr=self.downsample_cust.value
         except AttributeError:
@@ -80,23 +81,23 @@ class VarcharDBI(DBI):
         self.downsample_cust=TextInput(title="Customer name contains:")
         self.downsample_cust.on_change('value', lambda attr, old, new: self.downsample_cust_handler(new.strip()))
         return self.downsample_cust
-    def downsample_group_handler(self,substr):
-        groups = self.fetchall("SELECT name FROM groups WHERE name ~* %s;",substr)
-        if len(groups) == 1:
-            self.group_selected(groups[0][0])
-        elif len(groups) > 1:
-            self.group_selected("''")
+    def downsample_class_handler(self,substr):
+        classes = self.fetchall("SELECT name FROM classes WHERE name ~* %s;",substr)
+        if len(classes) == 1:
+            self.class_selected(classes[0][0])
+        elif len(classes) > 1:
+            self.class_selected("''")
         else:
-            print('FLAG: no group selected for \ngroup name substr:',substr)
-            groups=[('None',)]
-        self.group_dropdown.options=[group[0] for group in groups]
+            print('FLAG: no class selected for \nclass name substr:',substr)
+            classes=[('None',)]
+        self.class_dropdown.options=[c[0] for c in classes]
     def downsample_cust_handler(self,substr):
         customers = self.fetchall("""
             SELECT customers.name
             FROM customers
-            JOIN groups USING (group_id)
+            JOIN classes USING (class)
             WHERE customers.name ~* %s
-            AND groups.name ~* %s;
+            AND classes.name ~* %s;
             """,
             substr,
             self.gname)
@@ -105,54 +106,58 @@ class VarcharDBI(DBI):
         elif len(customers) > 1:
             self.customer_selected("None")
         else:
-            print('no customer selected with \nname substr:',substr,'\n group substr:',self.gname)
+            print('no customer selected with \nname substr:',substr,'\n class substr:',self.gname)
         try:
             self.cust_dropdown.options=[customer[0] for customer in customers]
         except AttributeError:
             self.cust_dd().options=[customer[0] for customer in customers]
-    def group_notes(self):
-        notes=self.fetchone("SELECT COALESCE(notes,' ') FROM groups WHERE name = %s",self.gname)
+    def class_notes(self):
+        notes=self.fetchone("SELECT COALESCE(notes,' ') FROM classes WHERE name = %s",self.gname)
         if not notes:
-            print("FLAG: no group notes for group:",self.gname)
+            print("FLAG: no class notes for class:",self.gname)
             notes=('',)
-        self.group_notes_div=init_notes_div('Group',notes[0])
-        return self.group_notes_div
+        self.class_notes_div=init_notes_div('class',notes[0])
+        return self.class_notes_div
     def cust_notes(self):
         notes=self.fetchone("""
             SELECT COALESCE(customers.notes,' ') 
             FROM customers
-            JOIN groups USING (group_id)
+            JOIN classes USING (class)
             WHERE customers.name ~* %s
-            AND groups.name ~* %s;
+            AND classes.name ~* %s;
             """,
             self.cname,
-            self.gname)
+            self.class_name)
         if not notes:
-            print('FLAG: no cust notes for \ncust:',self.cname,'\ngroup:',self.gname)
+            print('FLAG: no cust notes for \ncust:',self.cname,'\nclass:',self.class_name)
             notes=('',)
-        self.cust_notes_div=init_notes_div('Customer',notes[0])
-        return self.cust_notes_div
-    def group_notes_update(self):
-        # updates (or initializes then updates) group notes
-        notes=self.fetchone("SELECT COALESCE(notes,' ') FROM groups WHERE name = %s",self.gname)
-        formatted_notes=format_notes('Group',notes[0])
+        self.cust_notes_=init_notes_div('Customer',notes[0])
+        return self.cust_notes_
+    def class_notes_update(self):
+        # updates (or initializes then updates) class notes
+        notes=self.fetchone("SELECT COALESCE(notes,' ') FROM classes WHERE name = %s",self.gname)
+        formatted_notes=format_notes('class',notes[0])
         try:
-            self.group_notes_div.text=formatted_notes
+            self.class_notes_div.text=formatted_notes
         except AttributeError:
-            self.group_notes().text=formatted_notes
+            self.class_notes().text=formatted_notes
     def cust_notes_update(self):
         # updates (or initializes then updates) customer notes
         notes=self.fetchone("""
             SELECT COALESCE(customers.notes,' ') 
             FROM customers
-            JOIN groups USING (group_id)
+            JOIN classes USING (class)
             WHERE customers.name ~* %s
-            AND groups.name ~* %s;
+            AND classes.name ~* %s;
             """,
             self.cname,
             self.gname)
         formatted_notes=format_notes('Customer',notes[0])
         try:
-            self.cust_markup.text=formatted_notes
+            self.cust_notes_.text=formatted_notes
         except AttributeError:
-            self.cust_notes().text=formatted_notes
+            nf = self.cust_notes()
+            if type(nf) == Div:
+                nf.text=formatted_notes
+            elif type(nf) == TextInput:
+                nf.value=formatted_notes

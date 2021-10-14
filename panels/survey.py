@@ -6,13 +6,13 @@ from bokeh.models import ColumnDataSource, Div, Select, Slider, TextInput,Panel,
 
 from panels.psql.db_admin import DBAdmin
 from panels.htmls.html_config import init_notes_div,div_html
-from panels.psql.bokeh_dbi import VarcharDBI
+from panels.psql.bokeh_dbi import HierarchicalFields
 
-class Survey(VarcharDBI):
+class Survey(HierarchicalFields):
     survey_options=[str(i) for i in range(1,6)]
     income_options=[str(i) for i in range(0,50000,3000)]
     def __init__(self,*args,**kwargs):
-        VarcharDBI.__init__(self,ini_section = kwargs['ini_section'])
+        HierarchicalFields.__init__(self,ini_section = kwargs['ini_section'])
         self.Selects=self.survey_fields()
 
     def survey_fields(self):

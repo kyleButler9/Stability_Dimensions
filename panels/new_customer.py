@@ -3,12 +3,11 @@ from bokeh.models import Select, TextInput,Button
 
 from panels.psql.config import *
 from panels.htmls.html_config import *
-from panels.psql.bokeh_dbi import *
+from panels.psql.bokeh_dbi import HierarchicalFields
 
-# this class needs to make use of VarcharDBI like Survey and Export Csv do
-class New_Customer(VarcharDBI):
+class New_Customer(HierarchicalFields):
     def __init__(self,*args,**kwargs):
-        VarcharDBI.__init__(self,ini_section=kwargs['ini_section'])
+        HierarchicalFields.__init__(self,ini_section=kwargs['ini_section'])
     def cust_name(self):
         self.cust_name_=TextInput(title="Name")
         return self.cust_name_
@@ -30,11 +29,11 @@ class New_Customer(VarcharDBI):
                 ('name',self.cust_name_.value),
                 ('address',self.cust_address_.value),
                 ('notes',self.cust_notes_.value),
-                ('group',self.gname)
+                ('class',self.gname)
             ] if len(field[1])!=0]
         entries=list(zip(*entries))
-        if entries[0][0] != 'name' or entries[0][-1]!='group':
-            print('no customer name or group provided.')
+        if entries[0][0] != 'name' or entries[0][-1]!='class':
+            print('no customer name or class provided.')
             return self
         temp_keys=' VARCHAR(255),'.join(entries[0])
         keys=','.join(entries[0])
@@ -67,42 +66,42 @@ class New_Customer(VarcharDBI):
         return self
     def desc(self):
         return div_html("new_customer_banner.html",sizing_mode="stretch_width")
-    def new_group_name_input(self):
-        self.new_group_name=TextInput(title="New Group:")
-        return self.new_group_name
-    def new_group_notes_input(self):
-        self.new_group_notes=TextInput(title="Group Notes:")
-        return self.new_group_notes
-    def insert_new_group_button(self,label="Add New Group"):
-        self.ins_group=Button(label=label, button_type="success")
-        self.ins_group.on_click(self.ins_group_handler)
-        return self.ins_group
-    def ins_group_handler(self,event):
-        gname=str(self.new_group.value)
-        gnotes=str(self.group_notes_input.value)
+    def new_class_name_input(self):
+        self.new_class_name=TextInput(title="New Class:")
+        return self.new_class_name
+    def new_class_notes_input(self):
+        self.new_class_notes=TextInput(title="Class Notes:")
+        return self.new_class_notes
+    def insert_new_class_button(self,label="Add New Class"):
+        self.ins_class=Button(label=label, button_type="success")
+        self.ins_class.on_click(self.ins_class_handler)
+        return self.ins_class
+    def ins_class_handler(self,event):
+        gname=str(self.new_class.value)
+        gnotes=str(self.class_notes_input.value)
         if len(gname)==0:
-            print('provide a group name')
+            print('provide a class name')
             return self
         if len(gnotes) == 0:
             keys='name'
             vals=gname
-            conflict_notes='notes=groups.notes'
+            conflict_notes='notes=classes.notes'
         else:
             keys='name,notes'
             vals=','.join(gname,gnotes)
             conflict_notes='notes=EXCLUDED.notes'
         
-        new_group=f"""
-        INSERT INTO groups({keys}) VALUES({vals})
+        new_class=f"""
+        INSERT INTO classes({keys}) VALUES({vals})
         ON CONFLICT (name) DO UPDATE 
             SET {conflict_notes}
-        RETURNING group_id as group;
+        RETURNING class;
         """
-        self.execute_and_commit(new_group)
-        self.downsample_group_handler(gname)
-        self.clear_group_info()
+        self.execute_and_commit(new_class)
+        self.downsample_class_handler(gname)
+        self.clear_class_info()
         return self
-    def clear_group_info(self):
-        self.new_group_name.value=""
-        self.new_group_notes.value=""
+    def clear_class_info(self):
+        self.new_class_name.value=""
+        self.new_class_notes.value=""
         return self

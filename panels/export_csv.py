@@ -2,7 +2,7 @@ from os.path import dirname, join
 from collections import OrderedDict
 
 from panels.htmls.html_config import div_html
-from panels.psql.bokeh_dbi import VarcharDBI
+from panels.psql.bokeh_dbi import HierarchicalFields
 from panels.psql.db_admin import DBAdmin
 
 from bokeh.io import curdoc
@@ -10,9 +10,9 @@ from bokeh.layouts import column, row
 from bokeh.models import (Button, ColumnDataSource, CustomJS, DataTable,
                           NumberFormatter, RangeSlider, TableColumn)
 
-class Export_Csv(VarcharDBI):
+class Export_Csv(HierarchicalFields):
     def __init__(self,*args,**kwargs):
-        VarcharDBI.__init__(self,ini_section = kwargs['ini_section'])
+        HierarchicalFields.__init__(self,ini_section = kwargs['ini_section'])
         survey_fields=f"""
         select column_name
         from information_schema.columns
