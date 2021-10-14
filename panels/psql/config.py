@@ -13,11 +13,12 @@ def read_config_file(ini_file='database.ini', ini_section='local_stability'):
         params = parser.items(ini_section)
         for param in params:
             db[param[0]] = param[1]
-    elif len(parser.read(ini_file)) == 0:
-        raise Exception("No {0} in same directory as {1}".format(ini_file,__file__))
+    elif len(parser.read(join(dirname(__file__),ini_file))) == 0:
+        raise Exception("No {0} filein directory: {1}".format(ini_file,dirname(__file__)))
 
     else:
-        raise Exception('Section {0} not found in the {1} file'.format(ini_section, ini_file))
+        raise Exception('Section {0} not found in file: {1}'.format(ini_section, 
+        join(dirname(__file__),ini_file)))
     return db
 
 class ptuple(tuple):
@@ -106,9 +107,6 @@ class DBI:
         finally:
             return out
 
-    def insertToDB(self,sql,*args):        
-        return self.execute_and_commit(self,sql,*args)
-
     def fetchone(self,sql,*args):
         # returns one tuple
         # does not commit
@@ -118,16 +116,16 @@ class DBI:
             out=cur.fetchone()
             cur.close()
         except (Exception, psycopg2.DatabaseError) as error:
+            print(error)
             try:
                 cur.execute("ROLLBACK;")
                 cur.close()
+                return [(error,)]
             except:
                 self.restartConnection(attempt=0)
             if self.testConnection() == True:
                 out= self.fetchone(sql,*args)
             else:
-                out='Connection unable to be re-established.'
-                print(error)
                 out= (error,)
         finally:
             return out
@@ -142,16 +140,16 @@ class DBI:
             out =cur.fetchall()
             cur.close()
         except (Exception, psycopg2.DatabaseError) as error:
+            print(error)
             try:
                 cur.execute("ROLLBACK;")
                 cur.close()
+                return [(error,)]
             except:
                 self.restartConnection(attempt=0)
             if self.testConnection() == True:
                 out= self.fetchall(sql,*args)
             else:
-                out = 'Connection unable to be re-established.'
-                print(error)
                 out= [(error,)]
         finally:
             return out

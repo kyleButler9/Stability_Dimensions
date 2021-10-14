@@ -5,7 +5,6 @@ from panels.psql.config import *
 from panels.htmls.html_config import *
 from panels.psql.bokeh_dbi import *
 
-
 # this class needs to make use of VarcharDBI like Survey and Export Csv do
 class New_Customer(VarcharDBI):
     def __init__(self,*args,**kwargs):
@@ -24,146 +23,43 @@ class New_Customer(VarcharDBI):
         self.cust_button_.on_click(self.ins_cust_handler)
         return self.cust_button_
     def ins_cust_handler(self):
-        doNothing=False
-        print('ins cust0')
         if len(self.cust_name_.value) == 0:
-            doNothing=True
-        if len(self.cust_address_.value) == 0 and len(self.cust_notes_.value) == 0:
-            new_cust = \
-            """
-            DROP TABLE IF EXISTS user_inputs;
-            CREATE TEMP TABLE user_inputs(
-                name VARCHAR(255),
-                group_id INTEGER
-                );
-            INSERT INTO user_inputs(
-                name,
-                group_id
-            )
-            VALUES (
-                %s,
-                (SELECT group_id
-                FROM groups
-                WHERE groups.name = %s)
-            );
-            INSERT into customers(name,group_id)
-            VALUES (%s,
-                SELECT group_id
-                FROM groups
-                WHERE groups.name = %s)
+            return self
+        entries =  [
+            field for field in [
+                ('name',self.cust_name_.value),
+                ('address',self.cust_address_.value),
+                ('notes',self.cust_notes_.value),
+                ('group',self.gname)
+            ] if len(field[1])!=0]
+        entries=list(zip(*entries))
+        if entries[0][0] != 'name' or entries[0][-1]!='group':
+            print('no customer name or group provided.')
+            return self
+        temp_keys=' VARCHAR(255),'.join(entries[0])
+        keys=','.join(entries[0])
+        vals=','.join(entries[1])
+        update_cols=[]
+        for key in entries[0]:
+            update_cols.append('{0}=EXCLUDED.{0}'.format(key))
+        update_cols=','.join([
+            col for col in update_cols 
+            if col !='name'
+            ])
+        new_cust =\
+        f"""
+        DROP TABLE IF EXISTS user_inputs;
+        CREATE TEMP TABLE user_inputs({temp_keys});
+        INSERT INTO user_inputs({keys})
+            VALUES({vals})
+        INSERT INTO customers({keys})
+            SELECT {keys} FROM user_inputs
             ON CONFLICT (name) DO UPDATE
-                SET group_id = EXCLUDED.group_id
-            RETURNING customer_id as customer;
-            """
-            self.insertToDB(new_cust,
-                self.cust_name_.value,
-                self.group_dropdown.value)
-        elif len(self.cust_address_.value) == 0:
-            new_cust = \
-            """
-            DROP TABLE IF EXISTS user_inputs;
-            CREATE TEMP TABLE user_inputs(
-                name VARCHAR(255),
-                notes VARCHAR(255),
-                group_id INTEGER
-                );
-            INSERT INTO user_inputs(
-                name,
-                notes,
-                group_id
-            )
-            VALUES (
-                %s,
-                %s,
-                (SELECT group_id
-                FROM groups
-                WHERE groups.name = %s)
-            );
-            INSERT INTO customers(name,notes,group_id)
-                SELECT name,notes,group_id
-                    FROM user_inputs
-            ON CONFLICT (name) DO UPDATE
-                SET notes = EXCLUDED.notes,
-                    group_id = EXCLUDED.group_id
-            RETURNING customer_id as customer;
-            """
-            self.insertToDB(new_cust,
-                self.cust_name_.value,
-                self.cust_notes_.value,
-                self.group_dropdown.value)
-        elif len(self.cust_notes_.value) == 0:
-            new_cust = \
-            """
-            DROP TABLE IF EXISTS user_inputs;
-            CREATE TEMP TABLE user_inputs(
-                name VARCHAR(255),
-                address VARCHAR(255),
-                group_id INTEGER
-                );
-            INSERT INTO user_inputs(
-                name,
-                address,
-                group_id
-            )
-            VALUES (
-                %s,
-                %s,
-                (SELECT group_id
-                FROM groups
-                WHERE groups.name = %s)
-            );
-            INSERT INTO customers(name,address,group_id)
-                SELECT name,address,group_id
-                    FROM user_inputs
-            ON CONFLICT (name) DO UPDATE
-                SET address = EXCLUDED.address,
-                    group_id = EXCLUDED.group_id
-            RETURNING customer_id as customer;
-            """
-            self.insertToDB(new_cust,
-                self.cust_name_.value,
-                self.cust_address_.value,
-                self.group_dropdown.value)
-        else:
-            new_cust = \
-            """
-            DROP TABLE IF EXISTS user_inputs;
-            CREATE TEMP TABLE user_inputs(
-                name VARCHAR(255),
-                address VARCHAR(255),
-                notes VARCHAR(255),
-                group_id INTEGER
-                );
-            INSERT INTO user_inputs(
-                name,
-                address,
-                notes,
-                group_id
-            )
-            VALUES (
-                %s,
-                %s,
-                %s,
-                (SELECT group_id
-                FROM groups
-                WHERE groups.name = %s)
-            );
-            INSERT INTO customers(name,address,notes,group_id)
-                SELECT name,address,notes,group_id
-                    FROM user_inputs
-            ON CONFLICT (name) DO UPDATE
-                SET address = EXCLUDED.address,
-                    group_id = EXCLUDED.group_id,
-                    notes = EXCLUDED.notes
-            RETURNING customer_id as customer;
-            """
-            self.insertToDB(new_cust,
-                self.cust_name_.value,
-                self.cust_address_.value,
-                self.cust_notes_.value,
-                self.group_dropdown.value)
-        if not doNothing:
-            self.clear_cust_info()
+                SET {update_cols}
+        RETURNING customer;
+        """
+        self.execute_and_commit(new_cust)
+        self.clear_cust_info()
     def clear_cust_info(self):
         self.cust_name_.value=""
         self.cust_address_.value=""
@@ -182,41 +78,31 @@ class New_Customer(VarcharDBI):
         self.ins_group.on_click(self.ins_group_handler)
         return self.ins_group
     def ins_group_handler(self,event):
-        gname=self.new_group.value
-        gnotes=self.group_notes_input.value
+        gname=str(self.new_group.value)
+        gnotes=str(self.group_notes_input.value)
+        if len(gname)==0:
+            print('provide a group name')
+            return self
         if len(gnotes) == 0:
-            new_group="""
-            INSERT INTO groups(name) VALUES(%s)
-            ON CONFLICT (name) DO UPDATE 
-                SET notes = groups.notes
-            RETURNING group_id as group;
-            """
-            self.insertToDB(new_group,gname)
+            keys='name'
+            vals=gname
+            conflict_notes='notes=groups.notes'
         else:
-            new_group = \
-            """
-            DROP TABLE IF EXISTS user_inputs;
-            CREATE TEMP TABLE user_inputs(
-                name VARCHAR(255),
-                notes VARCHAR(255)
-                );
-            INSERT INTO user_inputs(
-                name,
-                notes
-    	    )
-            VALUES (
-                %s,
-                %s
-            );
-            INSERT INTO groups(name,notes)
-                SELECT name,notes
-                    FROM user_inputs
-            ON CONFLICT (name) DO UPDATE
-                SET notes = EXCLUDED.notes
-            RETURNING group_id as group
-            """
-            self.insertToDB(new_group,gname,gnotes)
-
-        self.downsample_group_handler()
+            keys='name,notes'
+            vals=','.join(gname,gnotes)
+            conflict_notes='notes=EXCLUDED.notes'
+        
+        new_group=f"""
+        INSERT INTO groups({keys}) VALUES({vals})
+        ON CONFLICT (name) DO UPDATE 
+            SET {conflict_notes}
+        RETURNING group_id as group;
+        """
+        self.execute_and_commit(new_group)
+        self.downsample_group_handler(gname)
+        self.clear_group_info()
+        return self
+    def clear_group_info(self):
         self.new_group_name.value=""
         self.new_group_notes.value=""
+        return self

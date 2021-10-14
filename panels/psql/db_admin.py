@@ -1,5 +1,9 @@
 import psycopg2
-from panels.psql.config import read_config_file,ptuple
+try:
+    from panels.psql.config import read_config_file,ptuple
+except:
+    from config import read_config_file,ptuple
+
 
 TEST_COMMAND = ('SELECT \'connection to postgres established.\'',)
 def batchExecuteSqlCommands(ini_section,SCHEMA=None,commands=TEST_COMMAND):
@@ -21,43 +25,54 @@ def batchExecuteSqlCommands(ini_section,SCHEMA=None,commands=TEST_COMMAND):
     finally:
         if conn is not None:
             conn.close()
-
+def create_schema(ini_section,SCHEMA):
+    conn = None
+    try:
+        params = read_config_file(ini_section=ini_section)
+        conn = psycopg2.connect(**params)
+        cur = conn.cursor()
+        cur.execute(f"CREATE SCHEMA {SCHEMA};")
+        cur.close()
+        conn.commit()
+    except (Exception, psycopg2.DatabaseError) as error:
+        print(error)
+    finally:
+        if conn is not None:
+            conn.close()
 class DBAdmin:
     non_survey_columns=ptuple(['time','notes','score','survey_id','customer_id'])
     createTableCommands = (
         """
-        CREATE SCHEMA customers;
-        """,
-        """
         CREATE TABLE categories (
-            category_id SERIAL PRIMARY KEY,
+            category SERIAL PRIMARY KEY,
             name VARCHAR(255) UNIQUE,
-            notes VARCHAR(255),
+            notes VARCHAR(255)
         );
         """,
         """
-        CREATE TABLE groups (
-            group_id SERIAL PRIMARY KEY,
+        CREATE TABLE classes (
+            class SERIAL PRIMARY KEY,
             name VARCHAR(255) UNIQUE,
             notes VARCHAR(255),
-            category_id INTEGER NOT NULL,
-            FOREIGN KEY (category_id) REFERENCES categories (category_id)
+            category INTEGER NOT NULL,
+            FOREIGN KEY (category) REFERENCES categories (category)
         );
         """,
         """
         CREATE TABLE customers(
-            customer_id SERIAL PRIMARY KEY,
+            customer SERIAL PRIMARY KEY,
             name VARCHAR(255) UNIQUE,
             address VARCHAR(255),
             notes VARCHAR(255),
-            group_id INTEGER NOT NULL,
-            FOREIGN KEY (group_id) REFERENCES groups (group_id)
+            referral VARCHAR(255),
+            class INTEGER NOT NULL,
+            FOREIGN KEY (class) REFERENCES classes (class)
         );
         """,
         """
         CREATE TABLE survey(
             survey_id SERIAL PRIMARY KEY,
-            customer_id INTEGER NOT NULL,
+            customer INTEGER NOT NULL,
             time timestamp,
             notes VARCHAR(255),
             score INTEGER,
@@ -73,32 +88,48 @@ class DBAdmin:
             housing INTEGER,
             safety INTEGER,
             health INTEGER,
-            FOREIGN KEY (customer_id) REFERENCES customers (customer_id)
+            FOREIGN KEY (customer) REFERENCES customers (customer)
         );
         """,
-        );
+        )
     initializeDatabaseCommands = (
+        """
+        CREATE FUNCTION on_new_cat()
+        RETURNS TRIGGER
+        language plpgsql
+        as
+        $$
+        begin
+        INSERT INTO classes(name,category,notes) 
+        VALUES(
+            CONCAT(NEW.name,'_general'),
+            (
+            SELECT category
+            FROM categories
+            WHERE name = NEW.name
+            ),
+            CONCAT('umbrella class for category ',NEW.name)
+        );
+        RETURN NEW;
+        END;
+        $$;
+
+        CREATE TRIGGER new_cat_inserted
+        AFTER INSERT
+        ON Categories
+        FOR EACH ROW
+        EXECUTE PROCEDURE on_new_cat();
+        """,
         """
         INSERT INTO categories(name)
         VALUES('None'),('School'),('Walk In');
         """,
         """
-        INSERT INTO groups(name,notes,category_id)
-        VALUES('None','Please select a group.',(SELECT category_id from categories c
-                                                WHERE c.name = 'None')),
-              ('School','No particular school.',(SELECT category_id from categories c
-                                                      WHERE c.name = 'School')),
-              ('Walk In','No Referral',(SELECT category_id from categories c
-                                                      WHERE c.name = 'Walk In')),
-        """,
-        """
-        INSERT INTO customers(name,notes,group_id)
+        INSERT INTO customers(name,notes,class)
         VALUES('None','Please select a customer.',
-                (SELECT group_id from groups where groups.name='None'));
+                (SELECT class from classes where classes.name='None_general'));
         """,
-        """
-        # add trigger here to create group when category created.
-        """,
+        
     )
     dropTablesCommands = (
     """
@@ -108,7 +139,13 @@ class DBAdmin:
     DROP TABLE IF EXISTS customers;
     """,
     """
-    DROP TABLE IF EXISTS groups;
+    DROP TABLE IF EXISTS classes;
+    """,
+    """
+    DROP TABLE IF EXISTS categories;
+    """,
+    """
+    DROP FUNCTION on_new_cat
     """,
     """
     DROP SCHEMA IF EXISTS customers;
@@ -118,13 +155,14 @@ if __name__ == '__main__':
 
     # This script instantiates a new PostgreSQL database.
 
-    # In order to run, replace "local_launcher" below with the header of the .ini file
+    # In order to run, replace "demo" below with the header of the .ini file
     # section.
 
     # For future development, consider compiling a CLI app that takes as input
     # a <example_path>.ini file path.
 
-    #batchExecuteSqlCommands('local_stability',commands=DBAdmin.dropTablesCommands)
+    batchExecuteSqlCommands('local_stability',SCHEMA='customers',commands=DBAdmin.dropTablesCommands)
     #print('deleted beta schema.')
-    batchExecuteSqlCommands('local_stability',SCHEMA='customer',commands=DBAdmin.createTableCommands)
-    batchExecuteSqlCommands('local_stability',SCHEMA='customer',commands=DBAdmin.initializeDatabaseCommands)
+    create_schema('local_stability','customers')
+    batchExecuteSqlCommands('local_stability',SCHEMA='customers',commands=DBAdmin.createTableCommands)
+    batchExecuteSqlCommands('local_stability',SCHEMA='customers',commands=DBAdmin.initializeDatabaseCommands)
