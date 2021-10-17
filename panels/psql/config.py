@@ -40,7 +40,6 @@ class DBI:
         self.schema=SCHEMA
         self.connectToDB()
         if self.testConnection()==False:
-            print('!!!!!!!!!!!here!!!!!!!!!!!!!')
             self.restartConnection(attempt=1)
 
     def connectToDB(self,**kwargs):
